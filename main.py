@@ -7,10 +7,18 @@ import services.categoryService as categoryService
 import services.productService as productService
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 import os
 
 app = FastAPI()
-
+# Allow requests from localhost during development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 # =====================================================================
 # ========================= USER ROUTE START ==========================
