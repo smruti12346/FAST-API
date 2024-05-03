@@ -27,8 +27,9 @@ def get_user_by_name(user_name: str):
     return userService.get_user_by_name(user_name)
 
 
+# def create_user(user_data: UserModel, token: str = Depends(userService.get_current_user)):
 @app.post("/users/")
-def create_user(user_data: UserModel, token: str = Depends(userService.get_current_user)):
+def create_user(user_data: UserModel):
     return userService.create(user_data)
 
 
