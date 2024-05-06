@@ -85,7 +85,7 @@ def get_all():
         return {"message": e, "status": "error"}
 
 
-def get_category_by_id(parrent_id):
+def get_category_by_parent_id(parrent_id):
     try:
         result = list(
             collection.find({"parent_id": int(parrent_id), "deleted_at": None})
@@ -97,6 +97,23 @@ def get_category_by_id(parrent_id):
         return {"data": data, "status": "success"}
     except Exception as e:
         return {"message": e, "status": "error"}
+    
+def get_category_by_id(id):
+    try:
+        result = list(
+            collection.find({"_id": ObjectId(id), "deleted_at": None})
+        )
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": e, "status": "error"}
+    
+def get(id):
+    return list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
+
 
 
 def update(id, data):

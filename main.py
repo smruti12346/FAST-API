@@ -1,14 +1,16 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Depends, Form
 from Models.User import UserModel, Token
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
 import services.userService as userService
 import services.categoryService as categoryService
 import services.productService as productService
-from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import ast
+import uuid
+from datetime import datetime
 
 app = FastAPI()
 # Allow requests from localhost during development
@@ -50,16 +52,19 @@ def update_user(user_id: str, user_data: UserModel):
 def delete_user(user_id: str):
     return userService.delete_user(user_id)
 
+
 @app.post("/users/login/")
-def login_user(email:str, password:str):
+def login_user(email: str, password: str):
     return userService.login(email, password)
+
 
 @app.post("/token/")
 def get_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     return userService.login_for_access_token(form_data)
 
+
 @app.get("/users/token-details/")
-def login_user(token:str):
+def login_user(token: str):
     return userService.get_current_user(token)
 
 
@@ -80,16 +85,51 @@ def get_all():
 
 @app.get("/category/{parent_id}")
 def get_category_by_parent_id(parent_id: int):
-    return categoryService.get_category_by_id(parent_id)
+    return categoryService.get_category_by_parent_id(parent_id)
 
 
 @app.post("/category/")
-def create_category(category_data: CategoryModel):
+async def create_category(
+    category_data: CategoryModel = Depends(), image: UploadFile = File(...)
+):
+    UPLOAD_DIR = "uploads\category"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    file = image.filename = f"{uuid.uuid4()}.{os.path.splitext(image.filename)[1]}"
+    content = await image.read()
+    file_name = os.path.join(UPLOAD_DIR, file)
+
+    with open(file_name, "wb") as f:
+        f.write(content)
+
+    category_data.image = file_name
+    category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
+
     return categoryService.create(category_data)
 
 
 @app.put("/category/{category_id}")
-def update_category(category_id: str, category_data: CategoryModel):
+async def update_category(
+    category_id: str,
+    category_data: CategoryModel = Depends(),
+    image: UploadFile = File(None),
+):
+    existing_category = categoryService.get(category_id)
+    if existing_category is None:
+        return {"message": "data not found for update", "status": "error"}
+
+    if image is not None:
+        UPLOAD_DIR = "uploads\category"
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        file_name = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
+        file_path = os.path.join(UPLOAD_DIR, file_name)
+        with open(file_path, "wb") as f:
+            f.write(await image.read())
+        category_data.image = file_path
+    else:
+        category_data.image = existing_category[0]["image"]
+        category_data.created_at = existing_category[0]["created_at"]
+    category_data.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
     return categoryService.update(category_id, category_data)
 
 
