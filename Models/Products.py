@@ -7,7 +7,7 @@ class ProductModel(BaseModel):
     category_id: int
     slug: str
     cover_image: str
-    images: Optional[List[str]] = None
+    images: Optional[str] = None
     description: str = None
     main_price: int
     sale_price: int
@@ -15,9 +15,9 @@ class ProductModel(BaseModel):
     quantity: int
     sold_quantity: Optional[int] = None
     shipping_status: Optional[int] = None
-    shipping_value: Optional[dict] = None
-    variant: Optional[dict] = None
-    seo: Optional[dict] = None
+    shipping_value: Optional[str] = None
+    variant: Optional[str] = None
+    seo: Optional[str] = None
     status: Optional[int] = Field(default=1)
     deleted_at: Optional[str] = None
     created_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))

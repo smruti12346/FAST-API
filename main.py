@@ -11,6 +11,10 @@ import os
 import ast
 import uuid
 from datetime import datetime
+import logging
+import json
+from typing import List
+
 
 app = FastAPI()
 # Allow requests from localhost during development
@@ -92,19 +96,26 @@ def get_category_by_parent_id(parent_id: int):
 async def create_category(
     category_data: CategoryModel = Depends(), image: UploadFile = File(...)
 ):
-    UPLOAD_DIR = "uploads\category"
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    file = image.filename = f"{uuid.uuid4()}.{os.path.splitext(image.filename)[1]}"
-    content = await image.read()
-    file_name = os.path.join(UPLOAD_DIR, file)
+    try:
+        UPLOAD_DIR = "uploads\category"
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        file = image.filename = f"{uuid.uuid4()}.{os.path.splitext(image.filename)[1]}"
+        content = await image.read()
+        file_name = os.path.join(UPLOAD_DIR, file)
 
-    with open(file_name, "wb") as f:
-        f.write(content)
+        with open(file_name, "wb") as f:
+            f.write(content)
 
-    category_data.image = file_name
-    category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
+        if category_data.seo is not None:
+            category_data.seo = json.loads(category_data.seo)
 
-    return categoryService.create(category_data)
+        category_data.image = file_name
+        category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
+
+        return categoryService.create(category_data)
+    except Exception as e:
+        logging.error(f"Error occurred while creating category: {e}")
+        return {"error": "An error occurred while creating category."}
 
 
 @app.put("/category/{category_id}")
@@ -159,8 +170,42 @@ def get_product_by_name(product_name: str):
 
 
 @app.post("/products/")
-def create_product(product_data: ProductModel):
-    return productService.create(product_data)
+async def create_product(
+    product_data: ProductModel = Depends(),
+    cover_image: UploadFile = File(...),
+    images: List[UploadFile] = File(...)
+):
+    try:
+        UPLOAD_DIR = "uploads\products"
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        # Handle cover image
+        cover_image_filename = f"{uuid.uuid4()}{os.path.splitext(cover_image.filename)[1]}"
+        cover_image_path = os.path.join(UPLOAD_DIR, cover_image_filename)
+        with open(cover_image_path, "wb") as f:
+            f.write(await cover_image.read())
+
+        # Handle additional images
+        additional_image_filenames = []
+        for image in images:
+            image_filename = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
+            image_path = os.path.join(UPLOAD_DIR, image_filename)
+            with open(image_path, "wb") as f:
+                f.write(await image.read())
+            additional_image_filenames.append(image_path)
+
+        # Assuming product_data has a field to store image paths
+        product_data.cover_image = cover_image_path
+        product_data.images = additional_image_filenames
+        
+        if product_data.seo is not None:
+            product_data.seo = json.loads(product_data.seo)
+
+        # Save product_data to the database or perform other operations
+        created_product = productService.create(product_data)
+        return created_product
+    except Exception as e:
+        logging.error(f"Error occurred while creating product: {e}")
+        return {"error": "An error occurred while creating product."}
 
 
 @app.put("/products/{product_id}")
