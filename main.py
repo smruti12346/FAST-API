@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, Form
+from fastapi import FastAPI, UploadFile, File, Depends, Form, Body
 from Models.User import UserModel, Token
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
@@ -94,9 +94,10 @@ def get_category_by_parent_id(parent_id: int):
 
 @app.post("/category/")
 async def create_category(
-    category_data: CategoryModel = Depends(), image: UploadFile = File(...)
+    category_data: CategoryModel = Body(...), image: UploadFile = File(...)
 ):
     try:
+
         UPLOAD_DIR = "uploads\category"
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         file = image.filename = f"{uuid.uuid4()}.{os.path.splitext(image.filename)[1]}"
@@ -113,6 +114,7 @@ async def create_category(
         category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
 
         return categoryService.create(category_data)
+
     except Exception as e:
         logging.error(f"Error occurred while creating category: {e}")
         return {"error": "An error occurred while creating category."}
@@ -121,14 +123,18 @@ async def create_category(
 @app.put("/category/{category_id}")
 async def update_category(
     category_id: str,
-    category_data: CategoryModel = Depends(),
+    category_data: CategoryModel = Body(...),
     image: UploadFile = File(None),
 ):
+
     existing_category = categoryService.get(category_id)
+    # print(existing_category)
+
     if existing_category is None:
         return {"message": "data not found for update", "status": "error"}
 
     if image is not None:
+        print(image)
         UPLOAD_DIR = "uploads\category"
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         file_name = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
@@ -138,9 +144,13 @@ async def update_category(
         category_data.image = file_path
     else:
         category_data.image = existing_category[0]["image"]
-        category_data.created_at = existing_category[0]["created_at"]
+
+    if category_data.seo is not None:
+        category_data.seo = json.loads(category_data.seo)
+    category_data.created_at = existing_category[0]["created_at"]
     category_data.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
+    category_data.parent_id = existing_category[0]["parent_id"]
+    category_data.parent_id_arr = existing_category[0]["parent_id_arr"]
     return categoryService.update(category_id, category_data)
 
 
@@ -173,13 +183,15 @@ def get_product_by_name(product_name: str):
 async def create_product(
     product_data: ProductModel = Depends(),
     cover_image: UploadFile = File(...),
-    images: List[UploadFile] = File(...)
+    images: List[UploadFile] = File(...),
 ):
     try:
         UPLOAD_DIR = "uploads\products"
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         # Handle cover image
-        cover_image_filename = f"{uuid.uuid4()}{os.path.splitext(cover_image.filename)[1]}"
+        cover_image_filename = (
+            f"{uuid.uuid4()}{os.path.splitext(cover_image.filename)[1]}"
+        )
         cover_image_path = os.path.join(UPLOAD_DIR, cover_image_filename)
         with open(cover_image_path, "wb") as f:
             f.write(await cover_image.read())
@@ -196,7 +208,7 @@ async def create_product(
         # Assuming product_data has a field to store image paths
         product_data.cover_image = cover_image_path
         product_data.images = additional_image_filenames
-        
+
         if product_data.seo is not None:
             product_data.seo = json.loads(product_data.seo)
 

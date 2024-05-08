@@ -1,5 +1,7 @@
 from db import db
 from bson import ObjectId
+from datetime import datetime
+
 
 collection = db["category"]
 
@@ -7,7 +9,11 @@ collection = db["category"]
 def create(data):
     try:
         data = dict(data)
-        data["id"] = int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1 if collection.find_one({}, sort=[("id", -1)]) is not None else 1
+        data["id"] = (
+            int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
+            if collection.find_one({}, sort=[("id", -1)]) is not None
+            else 1
+        )
         data["parent_id_arr"] = list(map(int, data["parent_id_arr"]))
         result = collection.insert_one(data)
         return {
@@ -18,14 +24,15 @@ def create(data):
     except Exception as e:
         return {"message": e, "status": "error"}
 
+
 def get_all():
     try:
         pipeline = [
-            {"$match": {}},
+            {"$match": {"deleted_at": None}},
             {"$unwind": "$parent_id_arr"},
             {
                 "$lookup": {
-                    "from": "product_category_productcategory",
+                    "from": "category",
                     "localField": "parent_id_arr",
                     "foreignField": "id",
                     "as": "parent_docs",
@@ -97,12 +104,11 @@ def get_category_by_parent_id(parrent_id):
         return {"data": data, "status": "success"}
     except Exception as e:
         return {"message": e, "status": "error"}
-    
+
+
 def get_category_by_id(id):
     try:
-        result = list(
-            collection.find({"_id": ObjectId(id), "deleted_at": None})
-        )
+        result = list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
         data = []
         for doc in result:
             doc["_id"] = str(doc["_id"])
@@ -110,10 +116,10 @@ def get_category_by_id(id):
         return {"data": data, "status": "success"}
     except Exception as e:
         return {"message": e, "status": "error"}
-    
+
+
 def get(id):
     return list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
-
 
 
 def update(id, data):
@@ -130,8 +136,13 @@ def update(id, data):
 
 
 def delete_category(category_id: str):
-    result = collection.delete_one({"_id": ObjectId(category_id)})
-    if result.deleted_count == 1:
+    # result = collection.delete_one({"_id": ObjectId(category_id)})
+    result = collection.update_one(
+        {"_id": ObjectId(category_id)},
+        {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
+    )
+    # if result.deleted_count == 1:
+    if result.modified_count == 1:
         return {"message": "data deleted successfully", "status": "success"}
     else:
         return {"message": "failed to delete", "status": "error"}
