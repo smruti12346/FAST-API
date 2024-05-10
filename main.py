@@ -23,7 +23,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Allow requests from localhost during development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "https://ecomm-python-next.vercel.app"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
