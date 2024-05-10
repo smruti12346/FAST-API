@@ -1,6 +1,7 @@
 from db import db
 from bson import ObjectId
 from datetime import datetime
+from fastapi import Request
 
 
 collection = db["category"]
@@ -25,7 +26,7 @@ def create(data):
         return {"message": e, "status": "error"}
 
 
-def get_all():
+def get_all(request):
     try:
         pipeline = [
             {"$match": {"deleted_at": None}},
@@ -86,6 +87,7 @@ def get_all():
         result = list(collection.aggregate(pipeline))
         data = []
         for doc in result:
+            doc["imageUrl"] = f"{str(request.base_url)[:-1]}/{doc['image']}"
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
@@ -133,6 +135,23 @@ def update(id, data):
             return {"message": "failed to update", "status": "error"}
     except Exception as e:
         return {"message": e, "status": "error"}
+
+
+def change_category_status(category_id: str):
+    getStatus = get(category_id)[0]["status"]
+    if getStatus == 0:
+        status = 1
+    else:
+        status = 0
+
+    result = collection.update_one(
+        {"_id": ObjectId(category_id)},
+        {"$set": {"status": status}},
+    )
+    if result.modified_count == 1:
+        return {"message": "status changed successfully", "status": "success"}
+    else:
+        return {"message": "failed to change status", "status": "error"}
 
 
 def delete_category(category_id: str):

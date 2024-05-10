@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, Form, Body
+from fastapi import FastAPI, UploadFile, File, Depends, Form, Body, Request
 from Models.User import UserModel, Token
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
@@ -14,13 +14,16 @@ from datetime import datetime
 import logging
 import json
 from typing import List
+from fastapi.staticfiles import StaticFiles
+
 
 
 app = FastAPI()
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Allow requests from localhost during development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
@@ -83,8 +86,8 @@ def login_user(token: str):
 
 
 @app.get("/category/")
-def get_all():
-    return categoryService.get_all()
+def get_all(request: Request):
+    return categoryService.get_all(request)
 
 
 @app.get("/category/{parent_id}")
@@ -153,6 +156,9 @@ async def update_category(
     category_data.parent_id_arr = existing_category[0]["parent_id_arr"]
     return categoryService.update(category_id, category_data)
 
+@app.post("/category/change-status/{category_id}")
+def change_category_status(category_id: str):
+    return categoryService.change_category_status(category_id)
 
 @app.delete("/category/{category_id}")
 def delete_category(category_id: str):
