@@ -176,8 +176,8 @@ def delete_category(category_id: str):
 
 
 @app.get("/products/")
-def get_all():
-    return productService.get_all()
+def get_all(request: Request):
+    return productService.get_all(request)
 
 
 @app.get("/products/{product_name}")
@@ -187,7 +187,7 @@ def get_product_by_name(product_name: str):
 
 @app.post("/products/")
 async def create_product(
-    product_data: ProductModel = Depends(),
+    product_data: ProductModel = Body(...),
     cover_image: UploadFile = File(...),
     images: List[UploadFile] = File(...),
 ):
@@ -215,12 +215,16 @@ async def create_product(
         product_data.cover_image = cover_image_path
         product_data.images = additional_image_filenames
 
+
         if product_data.seo is not None:
             product_data.seo = json.loads(product_data.seo)
+        if product_data.variant is not None:
+            product_data.variant = json.loads(product_data.variant)
+
 
         # Save product_data to the database or perform other operations
-        created_product = productService.create(product_data)
-        return created_product
+        return {"message": product_data, "status": "success"}
+        # return productService.create(product_data)
     except Exception as e:
         logging.error(f"Error occurred while creating product: {e}")
         return {"error": "An error occurred while creating product."}

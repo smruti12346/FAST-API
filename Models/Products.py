@@ -1,12 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional,List
 from datetime import datetime
+import json
 
 class ProductModel(BaseModel):
     name: str
     category_id: int
     slug: str
-    cover_image: str
+    cover_image: Optional[str] = None
     images: Optional[str] = None
     description: str = None
     main_price: int
@@ -24,3 +25,10 @@ class ProductModel(BaseModel):
     created_by: Optional[str] = None
     updated_at: Optional[str] = None
     updated_by: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
