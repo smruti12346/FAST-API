@@ -37,19 +37,19 @@ def create(user_data):
         else:
             return {"message": "user already exists", "status": "error"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_all():
     try:
-        result = collection.find()
+        result = collection.find({"deleted_at": None})
         data = []
         for doc in result:
             doc["_id"] = str(doc["_id"])
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_user_by_name(user_name):
@@ -61,27 +61,68 @@ def get_user_by_name(user_name):
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
+
+
+def get_user_by_id(id):
+    try:
+        result = list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def merge_objects(obj1, obj2):
+    merged_obj = obj1.copy()
+    for key, value in obj2.items():
+        if key in merged_obj and merged_obj[key] is None:
+            merged_obj[key] = value
+    return merged_obj
 
 
 def update(id, data):
     try:
         data = dict(data)
-        result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
+        updated_data = merge_objects(data, get_user_by_id(id)["data"][0])
+        result = collection.update_one({"_id": ObjectId(id)}, {"$set": updated_data})
         if result.modified_count == 1:
             return {"message": "data updated successfully", "status": "success"}
         else:
             return {"message": "failed to update", "status": "error"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def delete_user(user_id: str):
-    result = collection.delete_one({"_id": ObjectId(user_id)})
-    if result.deleted_count == 1:
+    result = collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
+    )
+    if result.modified_count == 1:
         return {"message": "data deleted successfully", "status": "success"}
     else:
         return {"message": "failed to delete", "status": "error"}
+
+
+def change_category_status(category_id: str):
+    getStatus = get_user_by_id(category_id)["data"][0]["status"]
+    if getStatus == 0:
+        status = 1
+    else:
+        status = 0
+
+    result = collection.update_one(
+        {"_id": ObjectId(category_id)},
+        {"$set": {"status": status}},
+    )
+    if result.modified_count == 1:
+        return {"message": "status changed successfully", "status": "success"}
+    else:
+        return {"message": "failed to change status", "status": "error"}
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -115,7 +156,7 @@ def login(email, password: str):
         else:
             return {"message": "invalid user creadential", "status": "error"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def login_for_access_token(form_data):

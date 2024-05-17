@@ -7,6 +7,20 @@ collection = db["product"]
 def create(product_data):
     try:
         product_data = dict(product_data)
+        if (
+            collection.count_documents(
+                {
+                    "name": product_data["name"],
+                    "category_id": int(product_data["category_id"]),
+                }
+            )
+            > 0
+        ):
+            return {
+                "message": "Product name with this category is already exists",
+                "status": "error",
+            }
+
         product_data["id"] = (
             int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
             if collection.find_one({}, sort=[("id", -1)]) is not None
@@ -19,7 +33,7 @@ def create(product_data):
             "status": "success",
         }
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_all(request):
@@ -45,14 +59,66 @@ def get_all(request):
                     "category_slug": "$category.slug",
                     "category_parent_id_arr": "$category.parent_id_arr",
                     "imageUrl": {
-                        "$concat": [str(request.base_url)[:-1], "/", "$cover_image"]
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$cover_image",
+                            
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$cover_image",
+                            
+                        ]
                     },
                     "imageArrUrl": {
                         "$map": {
                             "input": "$images",
                             "as": "image",
                             "in": {
-                                "$concat": [str(request.base_url)[:-1], "/", "$$image"]
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/",
+                                    "$$image",
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl100": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/100/",
+                                    "$$image",
+                                    
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl300": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/300/",
+                                    "$$image",
+                                    
+                                ]
                             },
                         }
                     },
@@ -75,7 +141,7 @@ def get_all(request):
         return {"data": result, "status": "success"}
 
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_product_by_name(product_name):
@@ -87,7 +153,7 @@ def get_product_by_name(product_name):
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def update(id, data):
@@ -99,7 +165,7 @@ def update(id, data):
         else:
             return {"message": "failed to update", "status": "error"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def delete_product(product_id: str):

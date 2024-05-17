@@ -23,7 +23,7 @@ def create(data):
             "status": "success",
         }
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_all(request):
@@ -87,11 +87,13 @@ def get_all(request):
         result = list(collection.aggregate(pipeline))
         data = []
         for doc in result:
-            doc["imageUrl"] = f"{str(request.base_url)[:-1]}/{doc['image']}"
+            doc["imageUrl"] = f"{str(request.base_url)[:-1]}/uploads/category/{doc['image']}"
+            doc["imageUrl100"] = f"{str(request.base_url)[:-1]}/uploads/category/100/{doc['image']}.webp"
+            doc["imageUrl300"] = f"{str(request.base_url)[:-1]}/uploads/category/300/{doc['image']}.webp"
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_category_by_parent_id(parrent_id):
@@ -105,7 +107,7 @@ def get_category_by_parent_id(parrent_id):
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_category_by_id(id):
@@ -117,7 +119,7 @@ def get_category_by_id(id):
             data.append(doc)
         return {"data": data, "status": "success"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def get(id):
@@ -134,7 +136,7 @@ def update(id, data):
         else:
             return {"message": "failed to update", "status": "error"}
     except Exception as e:
-        return {"message": e, "status": "error"}
+        return {"message": str(e), "status": "error"}
 
 
 def change_category_status(category_id: str):

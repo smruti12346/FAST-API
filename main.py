@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Depends, Form, Body, Request
-from Models.User import UserModel, Token
+from fastapi import FastAPI, UploadFile, File, Depends, Form, Body, Request, BackgroundTasks
+from Models.User import UserModel, UserModelUpdate, Token
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
 import services.userService as userService
@@ -15,10 +15,12 @@ import logging
 import json
 from typing import List
 from fastapi.staticfiles import StaticFiles
-
+from PIL import Image
+from os import getcwd
 
 
 app = FastAPI()
+os.makedirs(getcwd() + "/uploads/", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Allow requests from localhost during development
 app.add_middleware(
@@ -28,6 +30,29 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+def resize_image(filename, mainFileName, PATH_FILES):
+
+    sizes = [{
+        "width": 100,
+        "height": 100,
+        "path": '100/'
+    }, {
+        "width": 300,
+        "height": 300,
+        "path": '300/'
+    }]
+
+    for size in sizes:
+        os.makedirs(PATH_FILES+ size['path'], exist_ok=True)
+        size_defined = size['width'], size['height']
+        image = Image.open(PATH_FILES + mainFileName, mode="r")
+        image.thumbnail(size_defined)
+        image.save(PATH_FILES+ size['path'] + filename + '.webp', 'webp', optimize = True, quality = 10)
+    image = Image.open(PATH_FILES + mainFileName, mode="r")
+    image.save(PATH_FILES + filename + '.webp', 'webp', optimize = True, quality = 10)
+    # os.remove(PATH_FILES + mainFileName)
 
 # =====================================================================
 # ========================= USER ROUTE START ==========================
@@ -46,18 +71,22 @@ def get_user_by_name(user_name: str):
 
 # def create_user(user_data: UserModel, token: str = Depends(userService.get_current_user)):
 @app.post("/users/")
-def create_user(user_data: UserModel):
+def create_user(user_data: UserModel = Body(...)):
     return userService.create(user_data)
 
 
 @app.put("/users/{user_id}")
-def update_user(user_id: str, user_data: UserModel):
+def update_user(user_id: str, user_data: UserModelUpdate = Body(...)):
     return userService.update(user_id, user_data)
 
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: str):
     return userService.delete_user(user_id)
+
+@app.post("/users/change-status/{user_id}")
+def change_category_status(user_id: str):
+    return userService.change_category_status(user_id)
 
 
 @app.post("/users/login/")
@@ -101,19 +130,21 @@ async def create_category(
 ):
     try:
 
-        UPLOAD_DIR = "uploads\category"
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-        file = image.filename = f"{uuid.uuid4()}.{os.path.splitext(image.filename)[1]}"
-        content = await image.read()
-        file_name = os.path.join(UPLOAD_DIR, file)
+        PATH_FILES = getcwd() + "/uploads/category/"
+        os.makedirs(PATH_FILES, exist_ok=True)
+        filename = f"{uuid.uuid1()}-{os.path.splitext(image.filename)[0]}"
+        mainFileName = filename + os.path.splitext(image.filename)[1]
 
-        with open(file_name, "wb") as f:
-            f.write(content)
+        with open(PATH_FILES + mainFileName, "wb") as myfile:
+            content = await image.read()
+            myfile.write(content)
+            myfile.close()
+        resize_image(filename, mainFileName, PATH_FILES)
 
         if category_data.seo is not None:
             category_data.seo = json.loads(category_data.seo)
 
-        category_data.image = file_name
+        category_data.image = filename + ".webp"
         category_data.parent_id_arr = ast.literal_eval(category_data.parent_id_arr)
 
         return categoryService.create(category_data)
@@ -137,14 +168,17 @@ async def update_category(
         return {"message": "data not found for update", "status": "error"}
 
     if image is not None:
-        print(image)
-        UPLOAD_DIR = "uploads\category"
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-        file_name = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
-        file_path = os.path.join(UPLOAD_DIR, file_name)
-        with open(file_path, "wb") as f:
-            f.write(await image.read())
-        category_data.image = file_path
+        PATH_FILES = getcwd() + "/uploads/category/"
+        os.makedirs(PATH_FILES, exist_ok=True)
+        filename = f"{uuid.uuid1()}-{os.path.splitext(image.filename)[0]}"
+        mainFileName = filename + os.path.splitext(image.filename)[1]
+
+        with open(PATH_FILES + mainFileName, "wb") as myfile:
+            content = await image.read()
+            myfile.write(content)
+            myfile.close()
+        resize_image(filename, mainFileName, PATH_FILES)
+        category_data.image = filename + ".webp"
     else:
         category_data.image = existing_category[0]["image"]
 
@@ -192,27 +226,31 @@ async def create_product(
     images: List[UploadFile] = File(...),
 ):
     try:
-        UPLOAD_DIR = "uploads\products"
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-        # Handle cover image
-        cover_image_filename = (
-            f"{uuid.uuid4()}{os.path.splitext(cover_image.filename)[1]}"
-        )
-        cover_image_path = os.path.join(UPLOAD_DIR, cover_image_filename)
-        with open(cover_image_path, "wb") as f:
-            f.write(await cover_image.read())
 
-        # Handle additional images
+        PATH_FILES = getcwd() + "/uploads/products/"
+        os.makedirs(PATH_FILES, exist_ok=True)
+        cover_image_filename = f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
+        main_cover_image_filename = cover_image_filename + os.path.splitext(cover_image.filename)[1]
+
+        with open(PATH_FILES + main_cover_image_filename, "wb") as myfile:
+            content = await cover_image.read()
+            myfile.write(content)
+            myfile.close()
+        resize_image(cover_image_filename, main_cover_image_filename, PATH_FILES)
+
         additional_image_filenames = []
         for image in images:
-            image_filename = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
-            image_path = os.path.join(UPLOAD_DIR, image_filename)
-            with open(image_path, "wb") as f:
-                f.write(await image.read())
-            additional_image_filenames.append(image_path)
+            feature_image = f"{uuid.uuid1()}-{os.path.splitext(image.filename)[0]}"
+            main_feature_image = feature_image + os.path.splitext(image.filename)[1]
 
-        # Assuming product_data has a field to store image paths
-        product_data.cover_image = cover_image_path
+            with open(PATH_FILES + main_feature_image, "wb") as myfile:
+                content = await image.read()
+                myfile.write(content)
+                myfile.close()
+                resize_image(feature_image, main_feature_image, PATH_FILES)
+            additional_image_filenames.append(feature_image + ".webp")
+
+        product_data.cover_image = cover_image_filename + ".webp"
         product_data.images = additional_image_filenames
 
 
@@ -221,10 +259,8 @@ async def create_product(
         if product_data.variant is not None:
             product_data.variant = json.loads(product_data.variant)
 
-
-        # Save product_data to the database or perform other operations
-        return {"message": product_data, "status": "success"}
-        # return productService.create(product_data)
+        # return {"message": product_data, "status": "success"}
+        return productService.create(product_data)
     except Exception as e:
         logging.error(f"Error occurred while creating product: {e}")
         return {"error": "An error occurred while creating product."}
@@ -243,3 +279,23 @@ def delete_product(product_id: str):
 # =====================================================================
 # ======================= PRODUCT ROUTE END ===========================
 # =====================================================================
+
+
+@app.post("/test-file-upload/")
+async def create_product(
+    cover_image: UploadFile = File(...),
+):
+    try:
+        PATH_FILES = getcwd() + "/uploads/test/"
+        os.makedirs(PATH_FILES, exist_ok=True)
+        filename = f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
+        mainFileName = filename + os.path.splitext(cover_image.filename)[1]
+        with open(PATH_FILES + mainFileName, "wb") as myfile:
+            content = await cover_image.read()
+            myfile.write(content)
+            myfile.close()
+        resize_image(filename, mainFileName, PATH_FILES)
+        return {"message": "image", "status": "success"}
+    except Exception as e:
+        logging.error(f"Error occurred while creating product: {e}")
+        return {"error": "An error occurred while creating product."}
