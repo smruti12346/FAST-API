@@ -108,15 +108,15 @@ def delete_user(user_id: str):
         return {"message": "failed to delete", "status": "error"}
 
 
-def change_category_status(category_id: str):
-    getStatus = get_user_by_id(category_id)["data"][0]["status"]
+def change_user_status(user_id: str):
+    getStatus = get_user_by_id(user_id)["data"][0]["status"]
     if getStatus == 0:
         status = 1
     else:
         status = 0
 
     result = collection.update_one(
-        {"_id": ObjectId(category_id)},
+        {"_id": ObjectId(user_id)},
         {"$set": {"status": status}},
     )
     if result.modified_count == 1:
@@ -148,6 +148,7 @@ def login(email, password: str):
                 return {
                     "message": "login successfully",
                     "access_token": access_token,
+                    "user_type": user["user_type"],
                     "token_type": "bearer",
                     "status": "success",
                 }
@@ -183,3 +184,137 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     except JWTError:
         return {"message": "Could not validate credentials", "status": "error"}
     # return user
+
+
+def update_address(id, data):
+    try:
+        data = dict(data)
+        mainArr = collection.find_one({"_id": ObjectId(id), "deleted_at": None})
+
+        if len(mainArr) > 0:
+            address_list = mainArr.get("address", [])
+            data["id"] = (
+                int(address_list[-1]["id"]) + 1
+                if address_list and "id" in address_list[-1]
+                else 1
+            )
+        print(data)
+        result = collection.update_one(
+            {"_id": ObjectId(id)}, {"$push": {"address": data}}
+        )
+        if result.modified_count == 1:
+            return {"message": "data updated successfully", "status": "success"}
+        else:
+            return {"message": "failed to update", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def delete_address(user_id: str, user_address_id: int):
+    user = collection.find_one(
+        {"_id": ObjectId(user_id), "address.id": user_address_id}, {"address.$": 1}
+    )
+    if len(user) > 0:
+        query = {"_id": ObjectId(user_id), "address.id": user_address_id}
+        update = {
+            "$set": {
+                "address.$.deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        }
+        result = collection.update_one(query, update)
+        if result.modified_count == 1:
+            return {"message": "deleted successfully", "status": "success"}
+        else:
+            return {"message": "failed to delete", "status": "error"}
+    else:
+        return {"message": "user address not found", "status": "error"}
+
+
+def change_addresss_status(user_id: str, user_address_id: int):
+
+    user = collection.find_one(
+        {"_id": ObjectId(user_id), "address.id": user_address_id}, {"address.$": 1}
+    )
+
+    if len(user) > 0:
+        collection.update_one(
+            {"_id": ObjectId(user_id)}, {"$set": {"address.$[].primary_status": 0}}
+        )
+        if user["address"][0]["primary_status"] == 0:
+            status = 1
+        elif user["address"][0]["primary_status"] == 1:
+            status = 0
+        query = {"_id": ObjectId(user_id), "address.id": user_address_id}
+        update = {"$set": {"address.$.primary_status": status}}
+        collection.update_one(query, update)
+        return {"message": "status changed successfully", "status": "success"}
+    else:
+        return {"message": "user address not found", "status": "error"}
+
+
+def update_bank(id, data):
+    try:
+        data = dict(data)
+        mainArr = collection.find_one({"_id": ObjectId(id), "deleted_at": None})
+
+        if len(mainArr) > 0:
+            bank_details_list = mainArr.get("bank_details", [])
+            data["id"] = (
+                int(bank_details_list[-1]["id"]) + 1
+                if bank_details_list and "id" in bank_details_list[-1]
+                else 1
+            )
+        print(data)
+        result = collection.update_one(
+            {"_id": ObjectId(id)}, {"$push": {"bank_details": data}}
+        )
+        if result.modified_count == 1:
+            return {"message": "data updated successfully", "status": "success"}
+        else:
+            return {"message": "failed to update", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def delete_bank(user_id: str, bank_id: int):
+    user = collection.find_one(
+        {"_id": ObjectId(user_id), "bank_details.id": bank_id}, {"bank_details.$": 1}
+    )
+    if len(user) > 0:
+        query = {"_id": ObjectId(user_id), "bank_details.id": bank_id}
+        update = {
+            "$set": {
+                "bank_details.$.deleted_at": datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            }
+        }
+        result = collection.update_one(query, update)
+        if result.modified_count == 1:
+            return {"message": "deleted successfully", "status": "success"}
+        else:
+            return {"message": "failed to delete", "status": "error"}
+    else:
+        return {"message": "user's bank details not found", "status": "error"}
+
+
+def change_bank_status(user_id: str, bank_id: int):
+
+    user = collection.find_one(
+        {"_id": ObjectId(user_id), "bank_details.id": bank_id}, {"bank_details.$": 1}
+    )
+
+    if len(user) > 0:
+        collection.update_one(
+            {"_id": ObjectId(user_id)}, {"$set": {"bank_details.$[].primary_status": 0}}
+        )
+        if user["bank_details"][0]["primary_status"] == 0:
+            status = 1
+        elif user["bank_details"][0]["primary_status"] == 1:
+            status = 0
+        query = {"_id": ObjectId(user_id), "bank_details.id": bank_id}
+        update = {"$set": {"bank_details.$.primary_status": status}}
+        collection.update_one(query, update)
+        return {"message": "status changed successfully", "status": "success"}
+    else:
+        return {"message": "user bank's details not found", "status": "error"}

@@ -144,14 +144,110 @@ def get_all(request):
         return {"message": str(e), "status": "error"}
 
 
-def get_product_by_name(product_name):
+def get_product_by_id(request, product_id):
     try:
-        result = collection.find({"name": product_name})
-        data = []
-        for doc in result:
-            doc["_id"] = str(doc["_id"])
-            data.append(doc)
-        return {"data": data, "status": "success"}
+        pipeline = [
+            {"$match": {"_id": ObjectId(product_id)}},
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_id",
+                    "foreignField": "id",
+                    "as": "category",
+                }
+            },
+            {
+                "$addFields": {
+                    "category": {"$arrayElemAt": ["$category", 0]},
+                    "_id": {"$toString": "$_id"},
+                }
+            },
+            {
+                "$addFields": {
+                    "category_name": "$category.name",
+                    "category_slug": "$category.slug",
+                    "category_parent_id_arr": "$category.parent_id_arr",
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$cover_image",
+                            
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$cover_image",
+                            
+                        ]
+                    },
+                    "imageArrUrl": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/",
+                                    "$$image",
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl100": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/100/",
+                                    "$$image",
+                                    
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl300": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/300/",
+                                    "$$image",
+                                    
+                                ]
+                            },
+                        }
+                    },
+                }
+            },
+            {"$unset": "category"},
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_parent_id_arr",
+                    "foreignField": "id",
+                    "as": "parent_categories",
+                }
+            },
+            {"$addFields": {"parent_category_names": "$parent_categories.name"}},
+            {"$unset": "parent_categories"},
+        ]
+
+        result = list(collection.aggregate(pipeline))
+        return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
