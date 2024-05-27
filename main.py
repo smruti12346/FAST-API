@@ -1,11 +1,27 @@
-from fastapi import FastAPI, UploadFile, File, Depends, Form, Body, Request, BackgroundTasks
-from Models.User import UserModel, UserModelUpdate, UserModelAddressUpdate, UserModelBankDetailsUpdate, Token
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Depends,
+    Form,
+    Body,
+    Request,
+    BackgroundTasks,
+)
+from Models.User import (
+    UserModel,
+    UserModelUpdate,
+    UserModelAddressUpdate,
+    UserModelBankDetailsUpdate,
+    Token,
+)
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
 import services.userService as userService
 import services.categoryService as categoryService
 import services.productService as productService
 import services.locationService as locationService
+import services.cartService as cartService
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -35,25 +51,26 @@ app.add_middleware(
 
 def resize_image(filename, mainFileName, PATH_FILES):
 
-    sizes = [{
-        "width": 100,
-        "height": 100,
-        "path": '100/'
-    }, {
-        "width": 300,
-        "height": 300,
-        "path": '300/'
-    }]
+    sizes = [
+        {"width": 100, "height": 100, "path": "100/"},
+        {"width": 300, "height": 300, "path": "300/"},
+    ]
 
     for size in sizes:
-        os.makedirs(PATH_FILES+ size['path'], exist_ok=True)
-        size_defined = size['width'], size['height']
+        os.makedirs(PATH_FILES + size["path"], exist_ok=True)
+        size_defined = size["width"], size["height"]
         image = Image.open(PATH_FILES + mainFileName, mode="r")
         image.thumbnail(size_defined)
-        image.save(PATH_FILES+ size['path'] + filename + '.webp', 'webp', optimize = True, quality = 10)
+        image.save(
+            PATH_FILES + size["path"] + filename + ".webp",
+            "webp",
+            optimize=True,
+            quality=10,
+        )
     image = Image.open(PATH_FILES + mainFileName, mode="r")
-    image.save(PATH_FILES + filename + '.webp', 'webp', optimize = True, quality = 10)
+    image.save(PATH_FILES + filename + ".webp", "webp", optimize=True, quality=10)
     # os.remove(PATH_FILES + mainFileName)
+
 
 # =====================================================================
 # ========================= USER ROUTE START ==========================
@@ -85,6 +102,7 @@ def update_user(user_id: str, user_data: UserModelUpdate = Body(...)):
 def delete_user(user_id: str):
     return userService.delete_user(user_id)
 
+
 @app.post("/users/change-status/{user_id}")
 def change_user_status(user_id: str):
     return userService.change_user_status(user_id)
@@ -104,32 +122,42 @@ def get_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
 def login_user(token: str):
     return userService.get_current_user(token)
 
+
 # ADDRESS SECTION START
 @app.put("/users/update-address/{user_id}")
 def update_address(user_id: str, data: UserModelAddressUpdate = Body(...)):
     return userService.update_address(user_id, data)
 
+
 @app.delete("/users/address/{user_id}/{address_id}")
-def delete_address(user_id: str, address_id:int):
+def delete_address(user_id: str, address_id: int):
     return userService.delete_address(user_id, address_id)
 
+
 @app.post("/users/change-address-status/{user_id}/{address_id}")
-def change_addresss_status(user_id: str, address_id:int):
+def change_addresss_status(user_id: str, address_id: int):
     return userService.change_addresss_status(user_id, address_id)
+
+
 # ADDRESS SECTION END
+
 
 # BANK SECTION START
 @app.put("/users/update-bank-details/{user_id}")
 def update_bank(user_id: str, data: UserModelBankDetailsUpdate = Body(...)):
     return userService.update_bank(user_id, data)
 
+
 @app.delete("/users/bank-details/{user_id}/{bank_id}")
-def delete_bank(user_id: str, bank_id:int):
+def delete_bank(user_id: str, bank_id: int):
     return userService.delete_bank(user_id, bank_id)
 
+
 @app.post("/users/change-bank-details-status/{user_id}/{bank_id}")
-def change_bank_status(user_id: str, bank_id:int):
+def change_bank_status(user_id: str, bank_id: int):
     return userService.change_bank_status(user_id, bank_id)
+
+
 # BANK SECTION END
 
 
@@ -219,9 +247,11 @@ async def update_category(
     category_data.parent_id_arr = existing_category[0]["parent_id_arr"]
     return categoryService.update(category_id, category_data)
 
+
 @app.post("/category/change-status/{category_id}")
 def change_category_status(category_id: str):
     return categoryService.change_category_status(category_id)
+
 
 @app.delete("/category/{category_id}")
 def delete_category(category_id: str):
@@ -258,8 +288,12 @@ async def create_product(
 
         PATH_FILES = getcwd() + "/uploads/products/"
         os.makedirs(PATH_FILES, exist_ok=True)
-        cover_image_filename = f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
-        main_cover_image_filename = cover_image_filename + os.path.splitext(cover_image.filename)[1]
+        cover_image_filename = (
+            f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
+        )
+        main_cover_image_filename = (
+            cover_image_filename + os.path.splitext(cover_image.filename)[1]
+        )
 
         with open(PATH_FILES + main_cover_image_filename, "wb") as myfile:
             content = await cover_image.read()
@@ -281,7 +315,6 @@ async def create_product(
 
         product_data.cover_image = cover_image_filename + ".webp"
         product_data.images = additional_image_filenames
-
 
         if product_data.seo is not None:
             product_data.seo = json.loads(product_data.seo)
@@ -318,17 +351,48 @@ def delete_product(product_id: str):
 def get_all_country(request: Request):
     return locationService.get_all_country(request)
 
+
 @app.get("/get_states_by_country/{country_id}")
 def get_states_by_country(country_id: int):
     return locationService.get_states_by_country(country_id)
 
+
 @app.get("/get_city_by_country_and_state/{country_id}/{state_id}")
-def get_city_by_country_and_state(country_id: int,state_id: int):
+def get_city_by_country_and_state(country_id: int, state_id: int):
     return locationService.get_city_by_country_and_state(country_id, state_id)
 
 
 # =====================================================================
 # ======================= LOCATION ROUTE END ==========================
+# =====================================================================
+
+
+# =====================================================================
+# ======================= ORDER ROUTE START ===========================
+# =====================================================================
+
+
+@app.post("/add_to_cart/")
+def add_to_cart(product_id: str, token: str = Depends(userService.get_current_user)):
+    if "_id" in token:
+        return cartService.add_to_cart(str(token["_id"]), product_id)
+    else:
+        return token
+
+
+# @app.post("/get_all_cart_details_by_user_id/")
+# def get_all_cart_details_by_user_id(token: str = Depends(userService.get_current_user)):
+#     if "_id" in token:
+#         return cartService.get_all_cart_details_by_user_id(str(token["_id"]))
+#     else:
+#         return token
+@app.post("/get_all_cart_details_by_user_id/")
+def get_all_cart_details_by_user_id(request: Request, user_id: str):
+    return cartService.get_all_cart_details_by_user_id(request, user_id)
+
+
+# =====================================================================
+# ======================= ORDER ROUTE END =============================
 # =====================================================================
 
 

@@ -15,7 +15,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
+ACCESS_TOKEN_EXPIRE_MINUTES = 10
 
 
 def check_email_exist(email: str):
@@ -180,10 +180,10 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         user = check_email_exist(email)
-        # print(email)
-    except JWTError:
-        return {"message": "Could not validate credentials", "status": "error"}
-    # return user
+        return user
+    except JWTError as e:
+        return {"message": str(e), "status": "error"}
+        # return {"message": "Could not validate credentials", "status": "error"}
 
 
 def update_address(id, data):
