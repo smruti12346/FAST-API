@@ -7,6 +7,8 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from Models.User import Token
+import requests
+from pydantic import Field
 
 collection = db["user"]
 
@@ -15,7 +17,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10
+ACCESS_TOKEN_EXPIRE_MINUTES = 720
+
+
+GOOGLE_CLIENT_ID = (
+    "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
+)
+GOOGLE_CLIENT_SECRET = "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"
+GOOGLE_REDIRECT_URI = "http://127.0.0.1:8000/auth/google/callback"
 
 
 def check_email_exist(email: str):
@@ -160,6 +169,51 @@ def login(email, password: str):
         return {"message": str(e), "status": "error"}
 
 
+# def google_login():
+
+
+def auth_google(email, password, name):
+    try:
+        if check_email_exist(email) is None:
+            user_data = {
+                "email": email,
+                "name": name,
+                "mobile": None,
+                "password": pwd_context.hash(password),
+                "dob": None,
+                "gender": None,
+                "profile_image": None,
+                "address": [],
+                "bank_details": [],
+                "user_type": 1,
+                "user_permission": None,
+                "description": None,
+                "status": 1,
+                "deleted_at": None,
+                "created_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "created_by": None,
+                "updated_at": None,
+                "updated_by": None,
+            }
+            collection.insert_one(user_data)
+
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": email}, expires_delta=access_token_expires
+        )
+
+        return {
+            "message": "login successfully",
+            "access_token": access_token,
+            "user_type": 1,
+            "token_type": "bearer",
+            "status": "success",
+        }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+
 def login_for_access_token(form_data):
     print(form_data.username)
     # Authenticate the user
@@ -186,6 +240,14 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         # return {"message": "Could not validate credentials", "status": "error"}
 
 
+def get_address_by_id(id):
+    try:
+        result = list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
+        return {"data": result[0]["address"], "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def update_address(id, data):
     try:
         data = dict(data)
@@ -198,10 +260,11 @@ def update_address(id, data):
                 if address_list and "id" in address_list[-1]
                 else 1
             )
-        print(data)
+        # print(data)
         result = collection.update_one(
             {"_id": ObjectId(id)}, {"$push": {"address": data}}
         )
+
         if result.modified_count == 1:
             return {"message": "data updated successfully", "status": "success"}
         else:
@@ -250,6 +313,14 @@ def change_addresss_status(user_id: str, user_address_id: int):
         return {"message": "status changed successfully", "status": "success"}
     else:
         return {"message": "user address not found", "status": "error"}
+
+
+def get_bank_details_by_id(id):
+    try:
+        result = list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
+        return {"data": result[0]["bank_details"], "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
 
 
 def update_bank(id, data):

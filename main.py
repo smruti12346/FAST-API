@@ -1,13 +1,5 @@
-from fastapi import (
-    FastAPI,
-    UploadFile,
-    File,
-    Depends,
-    Form,
-    Body,
-    Request,
-    BackgroundTasks,
-)
+from fastapi import FastAPI, UploadFile, File, Depends, Body, Request, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse
 from Models.User import (
     UserModel,
     UserModelUpdate,
@@ -17,11 +9,15 @@ from Models.User import (
 )
 from Models.Products import ProductModel
 from Models.Category import CategoryModel
+from Models.Order import OrderModel
+from Models.Cart import CartModel
 import services.userService as userService
 import services.categoryService as categoryService
 import services.productService as productService
 import services.locationService as locationService
 import services.cartService as cartService
+import services.orderService as orderService
+import services.scripts as scripts
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -30,10 +26,17 @@ import uuid
 from datetime import datetime
 import logging
 import json
-from typing import List
+from typing import List, Optional
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from os import getcwd
+from services.common import convert_oid_to_str
+
+GOOGLE_CLIENT_ID = (
+    "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
+)
+GOOGLE_CLIENT_SECRET = "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"
+GOOGLE_REDIRECT_URI = "http://127.0.0.1:8000/auth/google/callback"
 
 
 app = FastAPI()
@@ -42,7 +45,11 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Allow requests from localhost during development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://ecomm-python-next.vercel.app"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://ecomm-python-next.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
@@ -82,9 +89,14 @@ def get_all():
     return userService.get_all()
 
 
-@app.get("/users/{product_name}")
+@app.get("/users/{user_name}")
 def get_user_by_name(user_name: str):
     return userService.get_user_by_name(user_name)
+
+
+@app.get("/get-users-by-id/{user_id}")
+def get_user_by_id(user_id: str):
+    return userService.get_user_by_id(user_id)
 
 
 # def create_user(user_data: UserModel, token: str = Depends(userService.get_current_user)):
@@ -113,6 +125,11 @@ def login_user(email: str, password: str):
     return userService.login(email, password)
 
 
+@app.get("/auth/google/")
+async def auth_google(email: str, password: str, name: str):
+    return userService.auth_google(email, password, name)
+
+
 @app.post("/token/")
 def get_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     return userService.login_for_access_token(form_data)
@@ -120,7 +137,19 @@ def get_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
 
 @app.get("/users/token-details/")
 def login_user(token: str):
-    return userService.get_current_user(token)
+    userDetails = userService.get_current_user(token)
+    if userDetails["email"]:
+        return {"data": convert_oid_to_str([userDetails]), "status": "success"}
+    else:
+        return userDetails
+
+
+@app.post("/users/loggedin-user-deatils/")
+def login_user_details(token: str = Depends(userService.get_current_user)):
+    if "_id" in token:
+        return {"data": convert_oid_to_str([token]), "status": "success"}
+    else:
+        return {"data": "Not authenticated", "status": "error"}
 
 
 # ADDRESS SECTION START
@@ -129,14 +158,43 @@ def update_address(user_id: str, data: UserModelAddressUpdate = Body(...)):
     return userService.update_address(user_id, data)
 
 
+@app.put("/users/update-user-address/")
+def update_address(
+    token: str = Depends(userService.get_current_user),
+    data: UserModelAddressUpdate = Body(...),
+):
+    if "_id" in token:
+        return userService.update_address(str(token["_id"]), data)
+    else:
+        return {"data": "Not authenticated", "status": "error"}
+
+
 @app.delete("/users/address/{user_id}/{address_id}")
 def delete_address(user_id: str, address_id: int):
     return userService.delete_address(user_id, address_id)
 
 
+@app.delete("/users/delete-user-address/")
+def delete_address(address_id: int, token: str = Depends(userService.get_current_user)):
+    if "_id" in token:
+        return userService.delete_address(str(token["_id"]), address_id)
+    else:
+        return {"data": "Not authenticated", "status": "error"}
+
+
 @app.post("/users/change-address-status/{user_id}/{address_id}")
 def change_addresss_status(user_id: str, address_id: int):
     return userService.change_addresss_status(user_id, address_id)
+
+
+@app.post("/users/change-user-address-status/")
+def change_addresss_status(
+    address_id: int, token: str = Depends(userService.get_current_user)
+):
+    if "_id" in token:
+        return userService.change_addresss_status(str(token["_id"]), address_id)
+    else:
+        return {"data": "Not authenticated", "status": "error"}
 
 
 # ADDRESS SECTION END
@@ -174,6 +232,25 @@ def change_bank_status(user_id: str, bank_id: int):
 @app.get("/category/")
 def get_all(request: Request):
     return categoryService.get_all(request)
+
+
+@app.get("/sub-category/")
+def get_all_sub_category(request: Request):
+    return categoryService.get_all_sub_category(request)
+
+
+@app.get("/category-wise-product/{page}")
+def get_category_wise_product(
+    request: Request,
+    page: int,
+    category_id: int,
+    show_page: int,
+    sort_by: str = None,
+    price_range: str = None,
+):
+    return categoryService.get_category_wise_product(
+        request, page, category_id, show_page, sort_by, price_range
+    )
 
 
 @app.get("/category/{parent_id}")
@@ -279,7 +356,7 @@ def get_product_by_id(request: Request, product_id: str):
 
 
 @app.post("/products/")
-async def create_product(
+async def generate_dummy_product(
     product_data: ProductModel = Body(...),
     cover_image: UploadFile = File(...),
     images: List[UploadFile] = File(...),
@@ -377,18 +454,43 @@ def add_to_cart(product_id: str, token: str = Depends(userService.get_current_us
     if "_id" in token:
         return cartService.add_to_cart(str(token["_id"]), product_id)
     else:
-        return token
+        return {"data": "Not authenticated", "status": "error"}
+
+
+@app.post("/cart/")
+def add_to_cart(request: Request, items: List[str] = Body(...)):
+    return cartService.get_cart_details_by_product_arr(request, items)
+
+
+@app.post("/get_all_cart_details_by_user_id/")
+def get_all_cart_details_by_user_id(
+    request: Request, token: str = Depends(userService.get_current_user)
+):
+    if "_id" in token:
+        return cartService.get_all_cart_details_by_user_id(request, str(token["_id"]))
+    else:
+        return {"data": "Not authenticated", "status": "error"}
 
 
 # @app.post("/get_all_cart_details_by_user_id/")
-# def get_all_cart_details_by_user_id(token: str = Depends(userService.get_current_user)):
-#     if "_id" in token:
-#         return cartService.get_all_cart_details_by_user_id(str(token["_id"]))
-#     else:
-#         return token
-@app.post("/get_all_cart_details_by_user_id/")
-def get_all_cart_details_by_user_id(request: Request, user_id: str):
-    return cartService.get_all_cart_details_by_user_id(request, user_id)
+# def get_all_cart_details_by_user_id(request: Request, user_id: str):
+#     return cartService.get_all_cart_details_by_user_id(request, user_id)
+
+
+@app.post("/order_placed/")
+def order_placed(
+    product_details: List[OrderModel] = Body(...),
+    token: str = Depends(userService.get_current_user),
+):
+    if "_id" in token:
+        return orderService.order_placed(str(token["_id"]), product_details)
+    else:
+        return {"data": "Not authenticated", "status": "error"}
+
+
+@app.get("/orders/")
+def get_all_orders(request: Request):
+    return orderService.get_all_orders(request)
 
 
 # =====================================================================
@@ -414,3 +516,13 @@ async def create_product(
     except Exception as e:
         logging.error(f"Error occurred while creating product: {e}")
         return {"error": "An error occurred while creating product."}
+
+
+# @app.post("/generate-dummy-category/")
+# def generate_dummy_category():
+#     return scripts.generate_dummy_category()
+
+
+@app.post("/generate-dummy-product/")
+def generate_dummy_product():
+    return scripts.generate_dummy_product()

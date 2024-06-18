@@ -14,8 +14,8 @@ class ProductModel(BaseModel):
     sale_price: int
     currency: Optional[str] = None
     quantity: int
-    sold_quantity: Optional[int] = None
-    shipping_status: Optional[int] = None
+    sold_quantity: Optional[int] = Field(default=0)
+    shipping_status: Optional[int] = Field(default=0)
     shipping_value: Optional[str] = None
     variant: Optional[str] = None
     seo: Optional[str] = None

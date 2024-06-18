@@ -70,7 +70,6 @@ def get_all(request):
                             str(request.base_url)[:-1],
                             "/uploads/products/100/",
                             "$cover_image",
-                            
                         ]
                     },
                     "imageUrl300": {
@@ -78,7 +77,6 @@ def get_all(request):
                             str(request.base_url)[:-1],
                             "/uploads/products/300/",
                             "$cover_image",
-                            
                         ]
                     },
                     "imageArrUrl": {
@@ -103,7 +101,6 @@ def get_all(request):
                                     str(request.base_url)[:-1],
                                     "/uploads/products/100/",
                                     "$$image",
-                                    
                                 ]
                             },
                         }
@@ -117,7 +114,6 @@ def get_all(request):
                                     str(request.base_url)[:-1],
                                     "/uploads/products/300/",
                                     "$$image",
-                                    
                                 ]
                             },
                         }
@@ -179,7 +175,6 @@ def get_product_by_id(request, product_id):
                             str(request.base_url)[:-1],
                             "/uploads/products/100/",
                             "$cover_image",
-                            
                         ]
                     },
                     "imageUrl300": {
@@ -187,7 +182,6 @@ def get_product_by_id(request, product_id):
                             str(request.base_url)[:-1],
                             "/uploads/products/300/",
                             "$cover_image",
-                            
                         ]
                     },
                     "imageArrUrl": {
@@ -212,7 +206,6 @@ def get_product_by_id(request, product_id):
                                     str(request.base_url)[:-1],
                                     "/uploads/products/100/",
                                     "$$image",
-                                    
                                 ]
                             },
                         }
@@ -226,7 +219,6 @@ def get_product_by_id(request, product_id):
                                     str(request.base_url)[:-1],
                                     "/uploads/products/300/",
                                     "$$image",
-                                    
                                 ]
                             },
                         }
@@ -251,14 +243,27 @@ def get_product_by_id(request, product_id):
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
+
 def get_product_details_by_id(product_id):
     try:
-        result = list(collection.find({"_id": ObjectId(product_id), "deleted_at": None}))
+        result = list(
+            collection.find({"_id": ObjectId(product_id), "deleted_at": None})
+        )
         data = []
         for doc in result:
             doc["_id"] = str(doc["_id"])
             data.append(doc)
         return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_product_count_by_category_id(category_id):
+    try:
+        count = collection.count_documents(
+            {"category_id": category_id, "deleted_at": None}
+        )
+        return {"count": count, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
