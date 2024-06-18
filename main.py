@@ -49,6 +49,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "https://ecomm-python-next.vercel.app",
+        "https://python-next-ecommerce-frontend.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
