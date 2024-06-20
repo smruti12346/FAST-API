@@ -157,6 +157,8 @@ def login(email, password: str):
                 return {
                     "message": "login successfully",
                     "access_token": access_token,
+                    "name": user["name"],
+                    "email": email,
                     "user_type": user["user_type"],
                     "token_type": "bearer",
                     "status": "success",
@@ -167,9 +169,6 @@ def login(email, password: str):
             return {"message": "invalid user creadential", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
-
-
-# def google_login():
 
 
 def auth_google(email, password, name):
@@ -205,13 +204,14 @@ def auth_google(email, password, name):
         return {
             "message": "login successfully",
             "access_token": access_token,
+            "name": name,
+            "email": email,
             "user_type": 1,
             "token_type": "bearer",
             "status": "success",
         }
     except Exception as e:
         return {"message": str(e), "status": "error"}
-
 
 
 def login_for_access_token(form_data):
