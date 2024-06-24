@@ -478,6 +478,15 @@ def get_all_cart_details_by_user_id(
 #     return cartService.get_all_cart_details_by_user_id(request, user_id)
 
 
+@app.post("/check_order_quantity/")
+def check_order_quantity(product_id: str, varientArr: List[int]):
+    return orderService.check_order_quantity(product_id, varientArr)
+
+@app.post("/check_order_quantity_by_order/")
+def check_order_quantity_by_order(product_details: List[OrderModel] = Body(...)):
+    return orderService.check_order_quantity_by_order(product_details)
+
+
 @app.post("/order_placed/")
 def order_placed(
     product_details: List[OrderModel] = Body(...),

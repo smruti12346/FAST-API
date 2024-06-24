@@ -12,31 +12,58 @@ def update_variant_quantity(product, variant_arr, total_quantity):
     
     variant_names = []
 
-    # Traverse the variant structure to find the specified variant path
-    for variant_index in variant_arr:
-        if variant_index >= len(current_variants):
-            return {"message": "Variant not found.", "status": "error"}
+    if(len(current_variants) != 0 or len(variant_arr) != 0):
+        # Traverse the variant structure to find the specified variant path
+        for variant_index in variant_arr:
+            if variant_index >= len(current_variants):
+                return {"message": "Variant not found.", "status": "error"}
+            
+            current_variant = current_variants[variant_index]
+            variant_names.append(current_variant["varient"])
+            current_variants = current_variant.get("undervarient", [])
         
-        current_variant = current_variants[variant_index]
-        variant_names.append(current_variant["varient"])
-        current_variants = current_variant.get("undervarient", [])
-    
-    # The final variant in the path
-    final_variant = current_variant
+        # The final variant in the path
+        final_variant = current_variant
 
-    # Check if the final variant has enough quantity
-    if final_variant['quantity'] < total_quantity:
-        return {"message": f"Insufficient quantity for variant {final_variant['varient']}. Required: {total_quantity}, Available: {final_variant['quantity']}", "status": "error"}
+        # Check if the final variant has enough quantity
+        if final_variant['quantity'] < total_quantity:
+            return {"message": f"Insufficient quantity for variant {final_variant['varient']}. Required: {total_quantity}, Available: {final_variant['quantity']}", "status": "error"}
 
-    # Update quantities along the variant path
-    current_variants = product['variant']
-    for i, variant_index in enumerate(variant_arr):
-        current_variant = current_variants[variant_index]
-        current_variant['quantity'] -= total_quantity
-        current_variants = current_variant.get("undervarient", [])
+        # Update quantities along the variant path
+        current_variants = product['variant']
+        for i, variant_index in enumerate(variant_arr):
+            current_variant = current_variants[variant_index]
+            current_variant['quantity'] -= total_quantity
+            current_variants = current_variant.get("undervarient", [])
         
     product['quantity'] -= total_quantity
     return {"data": product, "status": "success"}
+
+def check_order_quantity(product_id, varientArr):
+    try:
+        result = list(db["product"].find({"_id": ObjectId(product_id), "deleted_at": None}))
+        updated_product = update_variant_quantity(result[0], varientArr, 2)
+        print(updated_product)
+        # return updated_product
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+def check_order_quantity_by_order(product_details):
+    try:
+        if(len(product_details) == 0):
+            return {"message": "please choose product", "status": "error"}
+        for existing_order in product_details:
+            existing_order_data = existing_order.dict()
+            result = list(db["product"].find({"_id": ObjectId(existing_order_data['product_id']), "deleted_at": None}))
+            updated_product = update_variant_quantity(result[0], existing_order_data['order_details']['varientArr'], existing_order_data['order_details']['total_quantity'])
+            
+            if(updated_product['status'] == 'error'):
+                return updated_product
+            
+        return {"message": "Product available", "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
 
 
 def order_placed(customer_id, product_details):

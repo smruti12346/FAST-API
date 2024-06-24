@@ -12,18 +12,22 @@ collection = db["category"]
 def create(data):
     try:
         data = dict(data)
-        data["id"] = (
-            int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
-            if collection.find_one({}, sort=[("id", -1)]) is not None
-            else 1
-        )
-        data["parent_id_arr"] = list(map(int, data["parent_id_arr"]))
-        result = collection.insert_one(data)
-        return {
-            "message": "data inserted successfully",
-            "_id": str(result.inserted_id),
-            "status": "success",
-        }
+
+        if collection.count_documents({"slug": data["slug"], "deleted_at": None}) != 0:
+            return {"message": "slug already exist", "status": "error"}
+
+        # data["id"] = (
+        #     int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
+        #     if collection.find_one({}, sort=[("id", -1)]) is not None
+        #     else 1
+        # )
+        # data["parent_id_arr"] = list(map(int, data["parent_id_arr"]))
+        # result = collection.insert_one(data)
+        # return {
+        #     "message": "data inserted successfully",
+        #     "_id": str(result.inserted_id),
+        #     "status": "success",
+        # }
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -298,6 +302,13 @@ def get_category_wise_product(
                         "$concat": [
                             str(request.base_url)[:-1],
                             "/uploads/products/100/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
                             "$cover_image",
                         ]
                     },

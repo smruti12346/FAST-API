@@ -7,15 +7,19 @@ collection = db["product"]
 def create(product_data):
     try:
         product_data = dict(product_data)
-        if (
-            collection.count_documents(
-                {
-                    "name": product_data["name"],
-                    "category_id": int(product_data["category_id"]),
-                }
-            )
-            > 0
-        ):
+        product_slug_count = collection.count_documents(
+            {"slug": product_data["slug"], "deleted_at": None}
+        )
+        if product_slug_count != 0:
+            return {"message": "slug already exist", "status": "error"}
+
+        product_name_count = collection.count_documents(
+            {
+                "name": product_data["name"],
+                "category_id": int(product_data["category_id"]),
+            }
+        )
+        if product_name_count > 0:
             return {
                 "message": "Product name with this category is already exists",
                 "status": "error",
