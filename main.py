@@ -244,13 +244,14 @@ def get_all_sub_category(request: Request):
 def get_category_wise_product(
     request: Request,
     page: int,
-    category_id: int,
+    identifier: str,
     show_page: int,
-    sort_by: str = None,
-    price_range: str = None,
+    sort_by: Optional[str] = None,
+    price_range: Optional[str] = None,
+    is_slug: bool = True,
 ):
     return categoryService.get_category_wise_product(
-        request, page, category_id, show_page, sort_by, price_range
+        request, page, identifier, show_page, sort_by, price_range, is_slug
     )
 
 
@@ -354,6 +355,10 @@ def get_all(request: Request):
 @app.get("/products/{product_id}")
 def get_product_by_id(request: Request, product_id: str):
     return productService.get_product_by_id(request, product_id)
+
+@app.get("/products_by_slug/{product_slug}")
+def get_product_by_slug(request: Request, product_slug: str):
+    return productService.get_product_by_slug(request, product_slug)
 
 
 @app.post("/products/")
@@ -481,6 +486,7 @@ def get_all_cart_details_by_user_id(
 @app.post("/check_order_quantity/")
 def check_order_quantity(product_id: str, varientArr: List[int]):
     return orderService.check_order_quantity(product_id, varientArr)
+
 
 @app.post("/check_order_quantity_by_order/")
 def check_order_quantity_by_order(product_details: List[OrderModel] = Body(...)):
