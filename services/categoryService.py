@@ -226,6 +226,7 @@ def get_all_sub_category(request):
             mainObj = dict()
             if data["data"] and len(data["data"]) > 0:
                 mainObj["name"] = data["data"][0]["name"]
+                mainObj["slug"] = data["data"][0]["slug"]
                 mainObj["id"] = docOne
 
             mainObj["subcategory"] = []
