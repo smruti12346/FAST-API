@@ -135,6 +135,9 @@ def order_placed(customer_id, product_details):
             productQuntityArrs.append(productQuntityArr)
             orders.append(data)
 
+        
+
+
         for existing_order in product_details:
             existing_order_data = existing_order.dict()
             result = list(db["product"].find({"_id": ObjectId(existing_order_data['product_id']), "deleted_at": None}))
