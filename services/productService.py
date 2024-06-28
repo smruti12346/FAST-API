@@ -143,6 +143,17 @@ def get_all(request):
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
+def search_products(query):
+    try:
+        collection.create_index([("name", "text")])
+        results = []
+        cursor = collection.find({"$text": {"$search": query}}, {"name": 1, "slug": 1, "_id": 0}).limit(6)
+        for document in cursor:
+            results.append(document)            
+        return {"data": results, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
 
 def get_product_by_id(request, product_id):
     try:
@@ -247,6 +258,7 @@ def get_product_by_id(request, product_id):
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
+
 def get_product_by_slug(request, product_slug):
     try:
         pipeline = [
@@ -350,7 +362,6 @@ def get_product_by_slug(request, product_slug):
         return {"message": str(e), "status": "error"}
 
 
-
 def get_product_details_by_id(product_id):
     try:
         result = list(
@@ -383,6 +394,60 @@ def update(id, data):
             return {"message": "data updated successfully", "status": "success"}
         else:
             return {"message": "failed to update", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def update_nested_items(newData, oldData):
+    for d1, d2 in zip(newData, oldData):
+        # Update current level
+        d2["quantity"] += d1["quantity"]
+        d2["price"] = d1["price"]
+
+        # Check and update undervarient recursively
+        if d1["undervarient"] and d2["undervarient"]:
+            update_nested_items(d1["undervarient"], d2["undervarient"])
+        elif d1["undervarient"]:
+            d2["undervarient"] = d1["undervarient"]
+
+    return oldData
+
+
+def calculate_parent_quantity(data):
+    total_quantity = 0
+    for item in data:
+        total_quantity += item["quantity"]
+    return total_quantity
+
+
+def update_product_variant(product_id, VariantItem):
+    try:
+        dict_data = [item.dict() for item in VariantItem]
+        data = collection.find_one({"_id": ObjectId(product_id), "deleted_at": None})
+        updated_variant = update_nested_items(dict_data, data["variant"])
+        total_quantity = calculate_parent_quantity(updated_variant)
+        result = collection.update_one(
+            {"_id": ObjectId(product_id)},
+            {"$set": {"variant": updated_variant, "quantity": total_quantity}},
+        )
+        if result.modified_count == 1:
+            return {"message": "Variant updated successfully", "status": "success"}
+        else:
+            return {"message": "failed to updated variant", "status": "error"}
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def update_only_product_quantity(product_id, total_quantity):
+    try:
+        result = collection.update_one(
+            {"_id": ObjectId(product_id)}, {"$inc": {"quantity": +total_quantity}}
+        )
+        if result.modified_count == 1:
+            return {"message": "Quantity updated successfully", "status": "success"}
+        else:
+            return {"message": "failed to updated quantity", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

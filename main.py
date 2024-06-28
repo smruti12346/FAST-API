@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, Body, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, Body, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from Models.User import (
     UserModel,
@@ -7,7 +7,7 @@ from Models.User import (
     UserModelBankDetailsUpdate,
     Token,
 )
-from Models.Products import ProductModel
+from Models.Products import ProductModel, VariantItem
 from Models.Category import CategoryModel
 from Models.Order import OrderModel
 from Models.Cart import CartModel
@@ -347,6 +347,11 @@ def delete_category(category_id: str):
 # =====================================================================
 
 
+@app.get("/search_products/")
+def search_products(query: str = Query(...)):
+    return productService.search_products(query)
+
+
 @app.get("/products/")
 def get_all(request: Request):
     return productService.get_all(request)
@@ -414,6 +419,14 @@ async def generate_dummy_product(
 @app.put("/products/{product_id}")
 def update_product(product_id: str, product_data: ProductModel):
     return productService.update(product_id, product_data)
+
+@app.put("/update_product_variant/{product_id}")
+def update_product_variant(product_id: str, VariantItem: List[VariantItem]):
+    return productService.update_product_variant(product_id, VariantItem )
+
+@app.put("/update_only_product_quantity/{product_id}")
+def update_only_product_quantity(product_id: str, total_quantity: int):
+    return productService.update_only_product_quantity(product_id, total_quantity)
 
 
 @app.delete("/products/{product_id}")
@@ -507,6 +520,15 @@ def order_placed(
 @app.get("/orders/")
 def get_all_orders(request: Request):
     return orderService.get_all_orders(request)
+
+
+@app.get("/orders_by_user/")
+def get_all_orders_by_user(request: Request, token: str = Depends(userService.get_current_user)):
+    if "_id" in token:
+        return orderService.get_all_orders_by_user(request, str(token["_id"]))
+    else:
+        return {"data": "Not authenticated", "status": "error"}
+
 
 
 # =====================================================================
