@@ -1,5 +1,6 @@
 from math import ceil
-
+from PIL import Image
+import os
 
 def paginate(collection, query, page=1, page_size=10):
     try:
@@ -28,3 +29,26 @@ def convert_oid_to_str(maindata):
         doc["_id"] = str(doc["_id"])
         data.append(doc)
     return data
+
+
+def resize_image(filename, mainFileName, PATH_FILES):
+
+    sizes = [
+        {"width": 100, "height": 100, "path": "100/"},
+        {"width": 300, "height": 300, "path": "300/"},
+    ]
+
+    for size in sizes:
+        os.makedirs(PATH_FILES + size["path"], exist_ok=True)
+        size_defined = size["width"], size["height"]
+        image = Image.open(PATH_FILES + mainFileName, mode="r")
+        image.thumbnail(size_defined)
+        image.save(
+            PATH_FILES + size["path"] + filename + ".webp",
+            "webp",
+            optimize=True,
+            quality=10,
+        )
+    image = Image.open(PATH_FILES + mainFileName, mode="r")
+    image.save(PATH_FILES + filename + ".webp", "webp", optimize=True, quality=10)
+    # os.remove(PATH_FILES + mainFileName)

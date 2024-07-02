@@ -1,6 +1,7 @@
 from db import db
 from datetime import datetime
 from bson import ObjectId
+from .common import paginate
 
 collection = db["order"]
 from .userService import get_address_by_id, get_bank_details_by_id
@@ -111,28 +112,9 @@ def order_placed(customer_id, product_details):
 
                 data["address"] = primary_status_items[0]
 
-            # bank_details = get_bank_details_by_id(data["customer_id"])
-            # if bank_details["status"] == "success":
-            #     primary_status_items = (
-            #         [
-            #             item
-            #             for item in bank_details["data"]
-            #             if item["primary_status"] == 1
-            #         ]
-            #         if bank_details.get("data")
-            #         else []
-            #     )
-            #     if len(primary_status_items) == 0:
-            #         return {
-            #             "message": "Please enter your bank details",
-            #             "status": "error",
-            #         }
-
-            #     data["bank_details"] = primary_status_items[0]
-
             data["bank_details"] = []
             data["order_tracking_id"] = 1
-            data["status"] = 1
+            data["status"] = 0
             data["deleted_at"] = None
             data["created_by"] = data["customer_id"]
             data["updated_by"] = None
@@ -157,6 +139,10 @@ def order_placed(customer_id, product_details):
             productQuntityArrs.append(productQuntityArr)
             orders.append(data)
 
+        #insert data before check quantity with status 0
+        resultInserted = collection.insert_many(orders)
+
+        # check quantity
         for existing_order in product_details:
             existing_order_data = existing_order.dict()
             result = list(
@@ -176,6 +162,7 @@ def order_placed(customer_id, product_details):
             if updated_product["status"] == "error":
                 return updated_product
 
+        # update quantity and varient after check quantity
         for existing_order in product_details:
             existing_order_data = existing_order.dict()
             result = list(
@@ -192,6 +179,7 @@ def order_placed(customer_id, product_details):
                 existing_order_data["order_details"]["total_quantity"],
             )
 
+            
             db["product"].update_one(
                 {"_id": ObjectId(existing_order_data["product_id"])},
                 {
@@ -207,7 +195,11 @@ def order_placed(customer_id, product_details):
                 },
             )
 
-        collection.insert_many(orders)
+        #insert data after check quantity with status 1
+        filter = {"_id": {"$in": resultInserted.inserted_ids}}
+        update = {"$set": {"status": 1}}
+        collection.update_many(filter, update)
+
         return {"message": "Order placed successfully", "status": "success"}
 
     except Exception as e:
@@ -352,6 +344,123 @@ def get_all_orders(request):
         return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+def get_orders_by_counts(request, page, show_page):
+    try:
+        pipeline = [
+            {"$match": {}},
+            {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
+            {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
+            {
+                "$lookup": {
+                    "from": "product",
+                    "localField": "product_id_obj",
+                    "foreignField": "_id",
+                    "as": "product_details",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "product_details.category_id",
+                    "foreignField": "id",
+                    "as": "category_details",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_details.parent_id_arr",
+                    "foreignField": "id",
+                    "as": "parent_docs",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "address.country_id",
+                    "foreignField": "id",
+                    "as": "parent_docs",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "customer_id_obj",
+                    "foreignField": "_id",
+                    "as": "customer_details",
+                }
+            },
+            {"$unwind": "$product_details"},
+            {"$unwind": "$category_details"},
+            {"$unwind": "$customer_details"},
+            {
+                "$addFields": {
+                    "product_details.imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.name": "$product_details.name",
+                    "product_details.cover_image": "$product_details.cover_image",
+                    "product_details.category_id": "$product_details.category_id",
+                    "category_details.name": "$category_details.name",
+                    "category_details.parent_id_arr": "$category_details.parent_id_arr",
+                    "category_details.parent_arr": "$parent_docs.name",
+                    "customer_details.name": "$customer_details.name",
+                    "customer_details.email": "$customer_details.email",
+                }
+            },{
+                "$sort": { "created_at": -1 }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "customer_id": 1,
+                    "product_id": {"$toString": "$product_id"},
+                    "order_details": 1,
+                    "payment_details": 1,
+                    "address": 1,
+                    "bank_details": 1,
+                    "order_tracking_id": 1,
+                    "status": 1,
+                    "product_details._id": {"$toString": "$product_details._id"},
+                    "product_details.name": 1,
+                    "product_details.cover_image": 1,
+                    "product_details.imageUrl": 1,
+                    "product_details.imageUrl100": 1,
+                    "product_details.imageUrl300": 1,
+                    "product_details.category_id": 1,
+                    "category_details.name": 1,
+                    "category_details.parent_arr": 1,
+                    "customer_details.name": 1,
+                    "customer_details.email": 1,
+                    "created_at": 1,
+                }
+            },
+        ]
+
+        documents = paginate(collection, pipeline, page, show_page)
+        return {"data": documents, "status": "success"}
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 def find_variant(variants, variant_arr):
