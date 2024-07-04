@@ -103,7 +103,3 @@ def update_only_product_quantity(product_id: str, total_quantity: int):
 def delete_product(product_id: str):
     return productService.delete_product(product_id)
 
-
-@router.post("/generate-dummy-product/")
-def generate_dummy_product():
-    return scripts.generate_dummy_product()

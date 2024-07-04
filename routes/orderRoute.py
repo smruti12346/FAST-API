@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Body, Request, Depends
-from Models.Order import OrderModel
+from fastapi import APIRouter, Body, Request, Depends, BackgroundTasks
+from Models.Order import OrderModel, InvoiceModel
 import services.cartService as cartService
 import services.userService as userService
 import services.orderService as orderService
@@ -72,3 +72,24 @@ def get_all_orders_by_user(request: Request, token: str = Depends(userService.ge
         return orderService.get_all_orders_by_user(request, str(token["_id"]))
     else:
         return {"data": "Not authenticated", "status": "error"}
+
+@router.put("/update-payment-status/{order_id}")
+def update_payment_status(order_id: str):
+    return orderService.update_payment_status(order_id)
+
+@router.put("/update-order-status/{order_id}")
+def update_order_status(order_id: str, status: int):
+    return orderService.update_order_status(order_id, status)
+
+@router.post("/get-all-orders-status-wise/")
+def get_all_orders_status_wise(request:Request, status: List[int]):
+    return orderService.get_all_orders_status_wise(request, status)
+
+
+@router.post("/get-all-orders-count-status-wise/")
+def get_all_orders_count_status_wise():
+    return orderService.get_all_orders_count_status_wise()
+
+@router.post("/get-order-invoice/")
+def get_order_invoice(data: InvoiceModel, background_tasks: BackgroundTasks):
+    return orderService.get_order_invoice(data, background_tasks)

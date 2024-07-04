@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, EmailStr
 from typing import Optional,List
 from datetime import datetime
 import json
@@ -48,4 +48,13 @@ class OrderModel(BaseModel):
             return cls(**json.loads(value))
         return value
     
+class InvoiceModel(BaseModel):
+    email: Optional[List[EmailStr]] = None
+    order_id: str
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
 
