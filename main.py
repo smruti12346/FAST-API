@@ -4,7 +4,7 @@ import os
 from fastapi.staticfiles import StaticFiles
 from os import getcwd
 
-from routes import userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute
+from routes import userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute
 
 GOOGLE_CLIENT_ID = (
     "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
@@ -55,6 +55,12 @@ app.include_router(orderRoute.router)
 
 # EMAIL ROUTE START
 app.include_router(emailRoute.router)
+
+# REPORT ROUTE START
+app.include_router(reportsRoute.router)
+
+# REPORT ROUTE START
+app.include_router(shippingRoute.router)
 
 # SCRIPT ROUTE START
 app.include_router(scriptsRoute.router)

@@ -8,8 +8,8 @@ class OrderDetails(BaseModel):
     varientArr: List[int]
     total_price: int
     discountInPercentage: int
-    discountedPrice: int
-    discountAmount: int
+    discountedPrice: float
+    discountAmount: float
     sale_price: int
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int

@@ -184,7 +184,7 @@ def auth_google(email, password, name):
                 "profile_image": None,
                 "address": [],
                 "bank_details": [],
-                "user_type": 1,
+                "user_type": 2,
                 "user_permission": None,
                 "description": None,
                 "status": 1,
