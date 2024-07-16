@@ -23,6 +23,10 @@ def search_products(query: str = Query(...)):
 def get_all(request: Request):
     return productService.get_all(request)
 
+@router.get("/all-products/{page}")
+def get_all_product(request: Request, page: int, show_page: int):
+    return productService.get_all_product(request, page, show_page)
+
 
 @router.get("/products/{product_id}")
 def get_product_by_id(request: Request, product_id: str):

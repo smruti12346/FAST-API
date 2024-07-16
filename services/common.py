@@ -17,6 +17,8 @@ def paginate(collection, query, page=1, page_size=10):
             "total": total_count,
             "page": page,
             "pages": total_pages,
+            "strat_count": skip,
+            "end_count": skip+page_size,
         }
 
     except Exception as e:

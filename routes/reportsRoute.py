@@ -7,3 +7,6 @@ router = APIRouter()
 def user_pending_and_placed_order_return_request_count():
     return reportsService.user_pending_and_placed_order_return_request_count()
 
+@router.post("/get-data-using-start-date-end-date/")
+def get_data_using_start_date_end_date(start_date:str, end_date:str):
+    return reportsService.get_data_using_start_date_end_date(start_date, end_date)

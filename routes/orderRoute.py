@@ -58,8 +58,12 @@ def order_placed(
 
 
 @router.get("/orders/")
-def get_all_orders(request: Request):
-    return orderService.get_all_orders(request)
+def get_orders(request: Request):
+    return orderService.get_orders(request)
+
+@router.get("/get-all-orders/{page}")
+def get_all_orders(request: Request, page: int, show_page: int):
+    return orderService.get_all_orders(request, page, show_page)
 
 @router.get("/get-orders-by-counts/{page}")
 def get_orders_by_counts(request: Request,page: int,show_page: int,

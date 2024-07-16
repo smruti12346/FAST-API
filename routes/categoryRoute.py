@@ -19,6 +19,9 @@ router = APIRouter()
 def get_all(request: Request):
     return categoryService.get_all(request)
 
+@router.get("/all-category/{page}")
+def get_all_category(request: Request, page: int, show_page: int):
+    return categoryService.get_all_category(request, page, show_page)
 
 @router.get("/sub-category/")
 def get_all_sub_category(request: Request):

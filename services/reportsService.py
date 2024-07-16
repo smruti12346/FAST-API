@@ -1,4 +1,5 @@
 from db import db
+from datetime import datetime
 
 
 def user_pending_and_placed_order_return_request_count():
@@ -19,5 +20,18 @@ def user_pending_and_placed_order_return_request_count():
             },
             "status": "success",
         }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_data_using_start_date_end_date(start_date, end_date):
+    try:
+        pipeline = [
+            {"$match": {"created_date": {"$gte": start_date, "$lte": end_date}}},
+            {"$group": {"_id": "$created_date", "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}},
+        ]
+        results = list(db["order"].aggregate(pipeline))
+        return {"data": results, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}

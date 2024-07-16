@@ -67,6 +67,31 @@ def get_all(request):
                 }
             },
             {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/100/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/300/",
+                            "$image",
+                        ]
+                    },
+                }
+            },
+            {
                 "$project": {
                     "_id": {"$toString": "$_id"},
                     "id": 1,
@@ -82,6 +107,9 @@ def get_all(request):
                     "status": 1,
                     "sub_category": 1,
                     "step": 1,
+                    "imageUrl": 1,
+                    "imageUrl100": 1,
+                    "imageUrl300": 1,
                     "deleted_at": 1,
                     "created_by": 1,
                     "created_at": 1,
@@ -91,19 +119,99 @@ def get_all(request):
         ]
 
         result = list(collection.aggregate(pipeline))
-        data = []
-        for doc in result:
-            doc["imageUrl"] = (
-                f"{str(request.base_url)[:-1]}/uploads/category/{doc['image']}"
-            )
-            doc["imageUrl100"] = (
-                f"{str(request.base_url)[:-1]}/uploads/category/100/{doc['image']}.webp"
-            )
-            doc["imageUrl300"] = (
-                f"{str(request.base_url)[:-1]}/uploads/category/300/{doc['image']}.webp"
-            )
-            data.append(doc)
-        return {"data": data, "status": "success"}
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_all_category(request, page, show_page):
+    try:
+        pipeline = [
+            {"$match": {"deleted_at": None}},
+            {"$unwind": "$parent_id_arr"},
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "parent_id_arr",
+                    "foreignField": "id",
+                    "as": "parent_docs",
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "id": {"$first": "$id"},
+                    "parent_id": {"$first": "$parent_id"},
+                    "parent_id_arr": {"$push": "$parent_id_arr"},
+                    "parent_arr": {"$push": {"$arrayElemAt": ["$parent_docs.name", 0]}},
+                    "name": {"$first": "$name"},
+                    "slug": {"$first": "$slug"},
+                    "image": {"$first": "$image"},
+                    "description": {"$first": "$description"},
+                    "variant": {"$first": "$variant"},
+                    "seo": {"$first": "$seo"},
+                    "status": {"$first": "$status"},
+                    "sub_category": {"$first": "$sub_category"},
+                    "step": {"$first": "$step"},
+                    "deleted_at": {"$first": "$deleted_at"},
+                    "created_by": {"$first": "$created_by"},
+                    "created_at": {"$first": "$created_at"},
+                }
+            },
+            {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/100/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/category/300/",
+                            "$image",
+                        ]
+                    },
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "id": 1,
+                    "parent_id": 1,
+                    "parent_id_arr": 1,
+                    "parent_arr": 1,
+                    "name": 1,
+                    "slug": 1,
+                    "image": 1,
+                    "description": 1,
+                    "variant": 1,
+                    "seo": 1,
+                    "status": 1,
+                    "sub_category": 1,
+                    "step": 1,
+                    "imageUrl": 1,
+                    "imageUrl100": 1,
+                    "imageUrl300": 1,
+                    "deleted_at": 1,
+                    "created_by": 1,
+                    "created_at": 1,
+                }
+            },
+            {"$sort": {"created_at": 1}},
+        ]
+
+        result = paginate(collection, pipeline, page, show_page)
+        return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

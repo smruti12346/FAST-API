@@ -72,10 +72,13 @@ def get_categories_from_db():
 def generate_dummy_order(product_ids, customer_id, addresses, random_date, statuses):
     status = random.choice(list(statuses.keys()))
 
-    # Generate a random order date
-    order_date = random_date(datetime(2023, 1, 1), datetime.now()).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    # Generate a random order datetime
+    order_datetime = random_date(datetime(2023, 1, 1), datetime.now())
+
+    # Format the datetime to string
+    order_at = order_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    order_date = order_datetime.strftime("%Y-%m-%d")
+    order_time = order_datetime.strftime("%H:%M:%S")
 
     # Initialize delivery_date as None
     delivery_date = None
@@ -96,13 +99,13 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
     if payment_type == "paypal":
         payment_status = 1
         transaction_status = 1
-        payment_date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        payment_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         payment_status_message = "COMPLETED"
     elif payment_type == "cash on delivery":
-        if status == 3 or status == 4 or status == 5 or status == 6 or status == 7:  # Order delivered
+        if status in [3, 4, 5, 6, 7]:  # Order delivered or related statuses
             payment_status = 1
             transaction_status = 1
-            payment_date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            payment_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             payment_status_message = "COMPLETED"
         else:
             payment_status = 0
@@ -156,8 +159,8 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
                                 },
                                 "final_capture": True,
                                 "seller_protection": {"status": "NOT_ELIGIBLE"},
-                                "create_time": str(datetime.now().isoformat()),
-                                "update_time": str(datetime.now().isoformat()),
+                                "create_time": datetime.now().isoformat(),
+                                "update_time": datetime.now().isoformat(),
                             }
                         ]
                     },
@@ -169,8 +172,8 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
                 "payer_id": f"{random.randint(1000000, 9999999)}",
                 "address": {"country_code": "US"},
             },
-            "create_time": str(datetime.now().isoformat()),
-            "update_time": str(datetime.now().isoformat()),
+            "create_time": datetime.now().isoformat(),
+            "update_time": datetime.now().isoformat(),
             "links": [
                 {
                     "href": "https://api.sandbox.paypal.com/v2/checkout/orders/12345",
@@ -219,7 +222,9 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
         "deleted_at": None,
         "created_by": f"{random.randint(1000000, 9999999)}",
         "updated_by": None,
-        "created_at": order_date,
+        "created_at": order_at,
+        "created_date": order_date,
+        "created_time": order_time,
         "updated_at": None,
     }
 
@@ -280,8 +285,9 @@ def generate_dummy_order_route_handle():
 
     dummy_data = [
         generate_dummy_order(product_ids, customer_id, addresses, random_date, statuses)
-        for _ in range(500)
+        for _ in range(5000)
     ]
 
     db["order"].insert_many(dummy_data)
     return {"data": "data inserted successfully", "status": "success"}
+

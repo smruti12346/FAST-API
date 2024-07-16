@@ -3,21 +3,18 @@ import services.shippingService as shippingService
 
 router = APIRouter()
 
-json_request = {
-    "AddressValidateRequest": {
-        "@USERID": "963ZVUIM7386",
-        "Revision": "1",
-        "Address": {
-            "Address1": "Suite 6100",
-            "Address2": "185 Berry St",
-            "City": "San Francisco",
-            "State": "CA",
-            "Zip5": "94556",
-            "Zip4": "",
-        },
-    }
-}
+@router.post("/validate-address/")
+def validate_address():
+    return shippingService.validate_address()
 
-@router.post("/get-usps-shipping-rate/")
-def get_usps_shipping_rate():
-    return shippingService.get_usps_shipping_rate(json_request)
+@router.post("/create-shipment-and-get-rates/")
+def create_shipment_and_get_rates():
+    return shippingService.create_shipment_and_get_rates()
+
+@router.post("/buy-shipment-for-deliver/")
+def buy_shipment_for_deliver():
+    return shippingService.buy_shipment_for_deliver()
+
+@router.post("/track-order-by-id/")
+def track_order_by_id():
+    return shippingService.track_order_by_id()

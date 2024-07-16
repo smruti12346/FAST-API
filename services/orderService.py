@@ -120,6 +120,8 @@ def order_placed(customer_id, product_details):
             data["created_by"] = data["customer_id"]
             data["updated_by"] = None
             data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
+            data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
             data["updated_at"] = None
 
             data["order_details"]["order_date"] = str(
@@ -233,7 +235,7 @@ def update_quantity(document):
         print(f"An error occurred: {e}")
 
 
-def get_all_orders(request):
+def get_orders(request):
     try:
         pipeline = [
             {"$match": {}},
@@ -341,6 +343,121 @@ def get_all_orders(request):
             },
         ]
         result = list(collection.aggregate(pipeline))
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_all_orders(request, page, show_page):
+    try:
+        pipeline = [
+            {"$match": {}},
+            {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
+            {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
+            {
+                "$lookup": {
+                    "from": "product",
+                    "localField": "product_id_obj",
+                    "foreignField": "_id",
+                    "as": "product_details",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "product_details.category_id",
+                    "foreignField": "id",
+                    "as": "category_details",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_details.parent_id_arr",
+                    "foreignField": "id",
+                    "as": "parent_docs",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "address.country_id",
+                    "foreignField": "id",
+                    "as": "parent_docs",
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "customer_id_obj",
+                    "foreignField": "_id",
+                    "as": "customer_details",
+                }
+            },
+            {"$unwind": "$product_details"},
+            {"$unwind": "$category_details"},
+            {"$unwind": "$customer_details"},
+            {
+                "$addFields": {
+                    "product_details.imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "product_details.name": "$product_details.name",
+                    "product_details.cover_image": "$product_details.cover_image",
+                    "product_details.category_id": "$product_details.category_id",
+                    "category_details.name": "$category_details.name",
+                    "category_details.parent_id_arr": "$category_details.parent_id_arr",
+                    "category_details.parent_arr": "$parent_docs.name",
+                    "customer_details.name": "$customer_details.name",
+                    "customer_details.email": "$customer_details.email",
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "customer_id": 1,
+                    "product_id": {"$toString": "$product_id"},
+                    "order_details": 1,
+                    "payment_details": 1,
+                    "address": 1,
+                    "bank_details": 1,
+                    "order_tracking_id": 1,
+                    "status": 1,
+                    "product_details._id": {"$toString": "$product_details._id"},
+                    "product_details.name": 1,
+                    "product_details.cover_image": 1,
+                    "product_details.imageUrl": 1,
+                    "product_details.imageUrl100": 1,
+                    "product_details.imageUrl300": 1,
+                    "product_details.category_id": 1,
+                    "category_details.name": 1,
+                    "category_details.parent_arr": 1,
+                    "customer_details.name": 1,
+                    "customer_details.email": 1,
+                }
+            },
+        ]
+        
+        # result = list(collection.aggregate(pipeline))
+        result = paginate(collection, pipeline, page, show_page)
         return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
