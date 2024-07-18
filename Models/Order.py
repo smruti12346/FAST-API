@@ -6,11 +6,13 @@ import json
 class OrderDetails(BaseModel):
     total_quantity: int
     varientArr: List[int]
-    total_price: int
+    total_price: float
     discountInPercentage: int
+    deliveryCharges: float
+    shippingRateId: int
     discountedPrice: float
     discountAmount: float
-    sale_price: int
+    sale_price: float
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int
     @model_validator(mode="before")
@@ -41,6 +43,7 @@ class OrderModel(BaseModel):
     order_details: OrderDetails
     payment_details: PaymentDetails
     product_id: str
+    order_tracking_id: str
     @model_validator(mode="before")
     @classmethod
     def validate_to_json(cls, value):

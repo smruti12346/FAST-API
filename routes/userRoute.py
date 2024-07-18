@@ -97,8 +97,9 @@ def update_address(
     token: str = Depends(userService.get_current_user),
     data: UserModelAddressUpdate = Body(...),
 ):
+    
     if "_id" in token:
-        return userService.update_address(str(token["_id"]), data)
+        return userService.update_address(str(token["_id"]), str(token["email"]), data)
     else:
         return {"data": "Not authenticated", "status": "error"}
 

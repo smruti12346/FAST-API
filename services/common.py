@@ -5,20 +5,26 @@ import os
 def paginate(collection, query, page=1, page_size=10):
     try:
         skip = (page - 1) * page_size
-        pipeline = query + [{"$skip": skip}, {"$limit": page_size}]
-        count_query = list(query)
-        count_query.append({"$group": {"_id": None, "count": {"$sum": 1}}})
-        count_result = list(collection.aggregate(count_query))
-        total_count = count_result[0]["count"] if count_result else 0
+        pipeline = [
+            {"$facet": {
+                "data": query + [{"$skip": skip}, {"$limit": page_size}],
+                "total": [{"$group": {"_id": None, "count": {"$sum": 1}}}]
+            }}
+        ]
+
+        result = list(collection.aggregate(pipeline))[0]
+
+        page_data = result["data"]
+        total_count = result["total"][0]["count"] if result["total"] else 0
         total_pages = ceil(total_count / page_size)
-        page_data = list(collection.aggregate(pipeline))
+
         return {
             "data": page_data,
             "total": total_count,
             "page": page,
             "pages": total_pages,
-            "strat_count": skip,
-            "end_count": skip+page_size,
+            "start_count": skip,
+            "end_count": min(skip + page_size, total_count)
         }
 
     except Exception as e:

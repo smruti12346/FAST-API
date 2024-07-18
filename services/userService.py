@@ -9,6 +9,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from Models.User import Token
 import requests
 from pydantic import Field
+import services.shippingService as shippingService
+import services.locationService as locationService
+
 
 collection = db["user"]
 
@@ -248,27 +251,68 @@ def get_address_by_id(id):
         return {"message": str(e), "status": "error"}
 
 
-def update_address(id, data):
+def update_address(id, email, data):
     try:
         data = dict(data)
-        mainArr = collection.find_one({"_id": ObjectId(id), "deleted_at": None})
-
-        if len(mainArr) > 0:
-            address_list = mainArr.get("address", [])
-            data["id"] = (
-                int(address_list[-1]["id"]) + 1
-                if address_list and "id" in address_list[-1]
-                else 1
-            )
         # print(data)
-        result = collection.update_one(
-            {"_id": ObjectId(id)}, {"$push": {"address": data}}
+        country_details = locationService.get_country_by_id(data["country_id"])["data"]
+        state_details = locationService.get_states_by_state_id_and_country_id(
+            data["country_id"], data["state_id"]
+        )["data"]
+        city_details = locationService.get_city_by_city_id_country_id_and_state_id(
+            data["country_id"], data["state_id"], data["city_id"]
+        )["data"]
+
+        if country_details and len(country_details) > 0:
+            country_iso = country_details[0]["name"]
+        else:
+            return {"message": "Country not found", "status": "error"}
+
+        if state_details and len(state_details) > 0:
+            state_code = state_details[0]["state_code"]
+        else:
+            return {"message": "Country not found", "status": "error"}
+
+        if city_details and len(city_details) > 0:
+            city_name = city_details[0]["name"]
+        else:
+            return {"message": "Country not found", "status": "error"}
+
+        shippingDetails = shippingService.validate_address(
+            data["roadName_area_colony"],
+            city_name,
+            state_code,
+            data["pin_number"],
+            country_iso,
+            email,
+            data["phone_number"],
         )
 
-        if result.modified_count == 1:
-            return {"message": "data updated successfully", "status": "success"}
+        if (
+            shippingDetails["status"] != "error"
+            and shippingDetails["data"]["verifications"]["delivery"]["success"] == True
+        ):
+            mainArr = collection.find_one({"_id": ObjectId(id), "deleted_at": None})
+
+            if len(mainArr) > 0:
+                address_list = mainArr.get("address", [])
+                data["id"] = (
+                    int(address_list[-1]["id"]) + 1
+                    if address_list and "id" in address_list[-1]
+                    else 1
+                )
+            # print(data)
+            result = collection.update_one(
+                {"_id": ObjectId(id)}, {"$push": {"address": data}}
+            )
+
+            if result.modified_count == 1:
+                return {"message": "data updated successfully", "status": "success"}
+            else:
+                return {"message": "failed to update", "status": "error"}
         else:
-            return {"message": "failed to update", "status": "error"}
+            return shippingDetails
+
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

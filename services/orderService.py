@@ -3,6 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from .common import paginate
 from services.smtpService import send_email
+import services.shippingService as shippingService
 
 collection = db["order"]
 from .userService import get_address_by_id, get_bank_details_by_id
@@ -89,120 +90,130 @@ def order_placed(customer_id, product_details):
         orders = []
         productQuntityArrs = []
 
-        if len(product_details) == 0:
-            return {"message": "please choose product", "status": "error"}
+
 
         for existing_order in product_details:
-            data = existing_order.dict()
-            data["customer_id"] = customer_id
-            address = get_address_by_id(data["customer_id"])
-            if address["status"] == "success":
-                primary_status_items = (
-                    [
-                        item
-                        for item in address["data"]
-                        if item["primary_status"] == 1
-                        and item.get("deleted_at") is None
-                        and item["status"] == 1
-                    ]
-                    if address.get("data")
-                    else []
-                )
-                if len(primary_status_items) == 0:
-                    return {"message": "Please enter your address", "status": "error"}
+            shp_id = existing_order.dict()['order_tracking_id']
+            shp_rate_id = existing_order.dict()['order_details']['shippingRateId']
+        print(shp_id)
+        print(shp_rate_id)
+           
+        # print(shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id))
 
-                data["address"] = primary_status_items[0]
+        # if len(product_details) == 0:
+        #     return {"message": "please choose product", "status": "error"}
 
-            data["bank_details"] = []
-            data["order_tracking_id"] = 1
-            data["status"] = 0
-            data["deleted_at"] = None
-            data["created_by"] = data["customer_id"]
-            data["updated_by"] = None
-            data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
-            data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
-            data["updated_at"] = None
+        # for existing_order in product_details:
+        #     data = existing_order.dict()
+        #     data["customer_id"] = customer_id
+        #     address = get_address_by_id(data["customer_id"])
+        #     if address["status"] == "success":
+        #         primary_status_items = (
+        #             [
+        #                 item
+        #                 for item in address["data"]
+        #                 if item["primary_status"] == 1
+        #                 and item.get("deleted_at") is None
+        #                 and item["status"] == 1
+        #             ]
+        #             if address.get("data")
+        #             else []
+        #         )
+        #         if len(primary_status_items) == 0:
+        #             return {"message": "Please enter your address", "status": "error"}
 
-            data["order_details"]["order_date"] = str(
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            )
-            data["order_details"]["order_cancel_status"] = None
-            data["order_details"]["order_cancel_date"] = None
-            data["order_details"]["order_cancel_amount"] = None
-            data["order_details"]["shipped_date"] = None
-            data["order_details"]["shipped_id"] = None
-            data["order_details"]["delivery_date"] = None
+        #         data["address"] = primary_status_items[0]
 
-            productQuntityArr = {
-                "_id": data["product_id"],
-                "total_quantity": data["order_details"]["total_quantity"],
-            }
+        #     data["bank_details"] = []
+        #     data["order_tracking_id"] = 1
+        #     data["status"] = 0
+        #     data["deleted_at"] = None
+        #     data["created_by"] = data["customer_id"]
+        #     data["updated_by"] = None
+        #     data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        #     data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
+        #     data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
+        #     data["updated_at"] = None
 
-            productQuntityArrs.append(productQuntityArr)
-            orders.append(data)
+        #     data["order_details"]["order_date"] = str(
+        #         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        #     )
+        #     data["order_details"]["order_cancel_status"] = None
+        #     data["order_details"]["order_cancel_date"] = None
+        #     data["order_details"]["order_cancel_amount"] = None
+        #     data["order_details"]["shipped_date"] = None
+        #     data["order_details"]["shipped_id"] = None
+        #     data["order_details"]["delivery_date"] = None
 
-        # insert data before check quantity with status 0
-        resultInserted = collection.insert_many(orders)
+        #     productQuntityArr = {
+        #         "_id": data["product_id"],
+        #         "total_quantity": data["order_details"]["total_quantity"],
+        #     }
 
-        # check quantity
-        for existing_order in product_details:
-            existing_order_data = existing_order.dict()
-            result = list(
-                db["product"].find(
-                    {
-                        "_id": ObjectId(existing_order_data["product_id"]),
-                        "deleted_at": None,
-                    }
-                )
-            )
-            updated_product = update_variant_quantity(
-                result[0],
-                existing_order_data["order_details"]["varientArr"],
-                existing_order_data["order_details"]["total_quantity"],
-            )
+        #     productQuntityArrs.append(productQuntityArr)
+        #     orders.append(data)
 
-            if updated_product["status"] == "error":
-                return updated_product
+        # # insert data before check quantity with status 0
+        # resultInserted = collection.insert_many(orders)
 
-        # update quantity and varient after check quantity
-        for existing_order in product_details:
-            existing_order_data = existing_order.dict()
-            result = list(
-                db["product"].find(
-                    {
-                        "_id": ObjectId(existing_order_data["product_id"]),
-                        "deleted_at": None,
-                    }
-                )
-            )
-            updated_product = update_variant_quantity(
-                result[0],
-                existing_order_data["order_details"]["varientArr"],
-                existing_order_data["order_details"]["total_quantity"],
-            )
+        # # check quantity
+        # for existing_order in product_details:
+        #     existing_order_data = existing_order.dict()
+        #     result = list(
+        #         db["product"].find(
+        #             {
+        #                 "_id": ObjectId(existing_order_data["product_id"]),
+        #                 "deleted_at": None,
+        #             }
+        #         )
+        #     )
+        #     updated_product = update_variant_quantity(
+        #         result[0],
+        #         existing_order_data["order_details"]["varientArr"],
+        #         existing_order_data["order_details"]["total_quantity"],
+        #     )
 
-            db["product"].update_one(
-                {"_id": ObjectId(existing_order_data["product_id"])},
-                {
-                    "$set": {
-                        "quantity": int(updated_product["data"]["quantity"]),
-                        "variant": updated_product["data"]["variant"],
-                    },
-                    "$inc": {
-                        "sold_quantity": +existing_order_data["order_details"][
-                            "total_quantity"
-                        ]
-                    },
-                },
-            )
+        #     if updated_product["status"] == "error":
+        #         return updated_product
 
-        # insert data after check quantity with status 1
-        filter = {"_id": {"$in": resultInserted.inserted_ids}}
-        update = {"$set": {"status": 1}}
-        collection.update_many(filter, update)
+        # # update quantity and varient after check quantity
+        # for existing_order in product_details:
+        #     existing_order_data = existing_order.dict()
+        #     result = list(
+        #         db["product"].find(
+        #             {
+        #                 "_id": ObjectId(existing_order_data["product_id"]),
+        #                 "deleted_at": None,
+        #             }
+        #         )
+        #     )
+        #     updated_product = update_variant_quantity(
+        #         result[0],
+        #         existing_order_data["order_details"]["varientArr"],
+        #         existing_order_data["order_details"]["total_quantity"],
+        #     )
 
-        return {"message": "Order placed successfully", "status": "success"}
+        #     db["product"].update_one(
+        #         {"_id": ObjectId(existing_order_data["product_id"])},
+        #         {
+        #             "$set": {
+        #                 "quantity": int(updated_product["data"]["quantity"]),
+        #                 "variant": updated_product["data"]["variant"],
+        #             },
+        #             "$inc": {
+        #                 "sold_quantity": +existing_order_data["order_details"][
+        #                     "total_quantity"
+        #                 ]
+        #             },
+        #         },
+        #     )
+
+        # # insert data after check quantity with status 1
+        # filter = {"_id": {"$in": resultInserted.inserted_ids}}
+        # update = {"$set": {"status": 1}}
+        # collection.update_many(filter, update)
+
+        # return {"message": "Order placed successfully", "status": "success"}
 
     except Exception as e:
         return {"message": str(e), "status": "error"}
@@ -571,9 +582,9 @@ def get_orders_by_counts(request, page, show_page):
                     "created_at": 1,
                 }
             },
+            {"$limit": 5}
         ]
-
-        documents = paginate(collection, pipeline, page, show_page)
+        documents = list(collection.aggregate(pipeline))
         return {"data": documents, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
