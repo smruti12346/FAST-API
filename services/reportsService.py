@@ -2,15 +2,36 @@ from db import db
 from datetime import datetime
 
 
-def user_pending_and_placed_order_return_request_count():
+def user_pending_and_placed_order_return_request_count(start_date, end_date):
     try:
-        user_count = db["user"].count_documents(
-            {"user_type": {"$ne": 1}, "deleted_at": None}
-        )
-        pending_order_count = db["order"].count_documents({"status": 1})
-        placed_order_count = db["order"].count_documents({"status": 2})
-        return_request_count = db["order"].count_documents({"status": 4})
+        user_count = db["user"].count_documents({
+            "$and": [
+                {"user_type": {"$ne": 1}},
+                {"deleted_at": None},
+                {"created_date": {"$gte": start_date, "$lte": end_date}}
+            ]
+        })
 
+        pending_order_count = db["order"].count_documents({
+            "$and": [
+                {"status": 1},
+                {"created_date": {"$gte": start_date, "$lte": end_date}}
+            ]
+        })
+
+        placed_order_count = db["order"].count_documents({
+            "$and": [
+                {"status": 2},
+                {"created_date": {"$gte": start_date, "$lte": end_date}}
+            ]
+        })
+
+        return_request_count = db["order"].count_documents({
+            "$and": [
+                {"status": 4},
+                {"created_date": {"$gte": start_date, "$lte": end_date}}
+            ]
+        })
         return {
             "data": {
                 "user_count": user_count,

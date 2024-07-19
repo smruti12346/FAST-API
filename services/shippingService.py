@@ -113,7 +113,6 @@ def buy_shipment_for_deliver(shp_id: str, rates_index: int):
         retrieved_shipment = client.shipment.retrieve(shp_id)
         print(retrieved_shipment)
         print(retrieved_shipment.lowest_rate())
-        print(rates_index)
         print(retrieved_shipment.rates[rates_index])
 
         shipment = client.shipment.buy(

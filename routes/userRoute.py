@@ -18,9 +18,9 @@ from services.common import convert_oid_to_str
 router = APIRouter()
 
 
-@router.get("/users/")
-def get_all():
-    return userService.get_all()
+@router.get("/users/{page}")
+def get_all(page: int,show_page: int):
+    return userService.get_all(page, show_page)
 
 
 @router.get("/users/{user_name}")

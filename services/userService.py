@@ -11,6 +11,8 @@ import requests
 from pydantic import Field
 import services.shippingService as shippingService
 import services.locationService as locationService
+from .common import paginate
+
 
 
 collection = db["user"]
@@ -52,14 +54,42 @@ def create(user_data):
         return {"message": str(e), "status": "error"}
 
 
-def get_all():
+def get_all(page, show_page):
     try:
-        result = collection.find({"deleted_at": None})
-        data = []
-        for doc in result:
-            doc["_id"] = str(doc["_id"])
-            data.append(doc)
-        return {"data": data, "status": "success"}
+        # result = collection.find({"deleted_at": None})
+        # data = []
+        # for doc in result:
+        #     doc["_id"] = str(doc["_id"])
+        #     data.append(doc)
+
+        pipeline = [
+            {"$match": {"deleted_at": None}},
+            {"$sort": {"created_at": 1}},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "deleted_at": 1,
+                    "name": 1,
+                    "email": 1,
+                    "mobile": 1,
+                    "dob": 1,
+                    "gender": 1,
+                    "profile_image": 1,
+                    "address": 1,
+                    "bank_details": 1,
+                    "user_type": 1,
+                    "user_permission": 1,
+                    "description": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "created_by": 1,
+                    "updated_at": 1,
+                    "updated_by": 1,
+                }
+            },
+        ]
+        result = paginate(collection, pipeline, page, show_page)
+        return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

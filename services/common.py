@@ -5,15 +5,24 @@ import os
 def paginate(collection, query, page=1, page_size=10):
     try:
         skip = (page - 1) * page_size
+        # Check if the query contains a $match stage
+        match_stage = next((stage for stage in query if "$match" in stage), None)
+        # Create the total pipeline with conditional match stage
+        total_pipeline = [match_stage] if match_stage else []
+        total_pipeline.append({"$group": {"_id": None, "count": {"$sum": 1}}})
+        # Create the data pipeline
+        data_pipeline = query + [
+            {"$skip": skip},
+            {"$limit": page_size}
+        ]
+        # Execute the pipelines using $facet
         pipeline = [
             {"$facet": {
-                "data": query + [{"$skip": skip}, {"$limit": page_size}],
-                "total": [{"$group": {"_id": None, "count": {"$sum": 1}}}]
+                "data": data_pipeline,
+                "total": total_pipeline
             }}
         ]
-
         result = list(collection.aggregate(pipeline))[0]
-
         page_data = result["data"]
         total_count = result["total"][0]["count"] if result["total"] else 0
         total_pages = ceil(total_count / page_size)

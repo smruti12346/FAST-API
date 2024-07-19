@@ -70,10 +70,10 @@ def get_orders_by_counts(request: Request,page: int,show_page: int,
 ):
     return orderService.get_orders_by_counts(request, page, show_page)
 
-@router.get("/orders_by_user/")
-def get_all_orders_by_user(request: Request, token: str = Depends(userService.get_current_user)):
+@router.get("/orders_by_user/{page}")
+def get_all_orders_by_user(request: Request, page: int, show_page: int, token: str = Depends(userService.get_current_user)):
     if "_id" in token:
-        return orderService.get_all_orders_by_user(request, str(token["_id"]))
+        return orderService.get_all_orders_by_user(request, str(token["_id"]), page, show_page)
     else:
         return {"data": "Not authenticated", "status": "error"}
 
@@ -85,9 +85,13 @@ def update_payment_status(order_id: str):
 def update_order_status(order_id: str, status: int):
     return orderService.update_order_status(order_id, status)
 
-@router.post("/get-all-orders-status-wise/")
-def get_all_orders_status_wise(request:Request, status: List[int]):
-    return orderService.get_all_orders_status_wise(request, status)
+# @router.post("/get-all-orders-status-wise/")
+# def get_all_orders_status_wise(request:Request, status: List[int]):
+#     return orderService.get_all_orders_status_wise(request, status)
+
+@router.post("/get-all-orders-status-wise/{page}")
+def get_all_orders_status_wise(request:Request, status: List[int], page: int,show_page: int):
+    return orderService.get_all_orders_status_wise(request, status, page, show_page)
 
 
 @router.post("/get-all-orders-count-status-wise/")
