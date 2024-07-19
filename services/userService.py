@@ -14,7 +14,6 @@ import services.locationService as locationService
 from .common import paginate
 
 
-
 collection = db["user"]
 
 # Password hashing
@@ -223,6 +222,8 @@ def auth_google(email, password, name):
                 "status": 1,
                 "deleted_at": None,
                 "created_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "created_date": str(datetime.now().strftime("%Y-%m-%d")),
+                "created_time": str(datetime.now().strftime("%H:%M:%S")),
                 "created_by": None,
                 "updated_at": None,
                 "updated_by": None,

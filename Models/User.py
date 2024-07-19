@@ -19,6 +19,8 @@ class UserModel(BaseModel):
     status: Optional[int] = Field(default=1)
     deleted_at: Optional[str] = None
     created_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    created_date: Optional[str] = str(datetime.now().strftime("%Y-%m-%d"))
+    created_time: Optional[str] = str(datetime.now().strftime("%H:%M:%S"))
     created_by: Optional[str] = None
     updated_at: Optional[str] = None
     updated_by: Optional[str] = None
