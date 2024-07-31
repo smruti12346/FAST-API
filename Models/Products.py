@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional,List
+from typing import Optional, List
 from datetime import datetime
 import json
+
 
 class ProductModel(BaseModel):
     name: str
@@ -10,8 +11,8 @@ class ProductModel(BaseModel):
     cover_image: Optional[str] = None
     images: Optional[str] = None
     description: str = None
-    main_price: int
-    sale_price: int
+    main_price: float
+    sale_price: float
     currency: Optional[str] = None
     quantity: int
     sold_quantity: Optional[int] = Field(default=0)
@@ -19,9 +20,25 @@ class ProductModel(BaseModel):
     shipping_value: Optional[str] = None
     variant: Optional[str] = None
     seo: Optional[str] = None
+
+    weight: Optional[float] = Field(default=0)
+    weight_unit: Optional[str] = None
+    height: Optional[float] = Field(default=0)
+    height_unit: Optional[str] = None
+    width: Optional[float] = Field(default=0)
+    width_unit: Optional[str] = None
+    length: Optional[float] = Field(default=0)
+    length_unit: Optional[str] = None
+    tag: Optional[str] = None
+    tax_status: Optional[str] = None
+    tax_percentage: Optional[float] = None
+
     status: Optional[int] = Field(default=1)
     deleted_at: Optional[str] = None
-    created_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    created_at: Optional[str] = Field(
+        default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    )
+    
     created_by: Optional[str] = None
     updated_at: Optional[str] = None
     updated_by: Optional[str] = None
@@ -32,14 +49,14 @@ class ProductModel(BaseModel):
         if isinstance(value, str):
             return cls(**json.loads(value))
         return value
-    
+
 
 class VariantItem(BaseModel):
     varientname: str
     varient: str
     quantity: int
     price: float
-    undervarient: Optional[List['VariantItem']] = []
+    undervarient: Optional[List["VariantItem"]] = []
 
     @model_validator(mode="before")
     @classmethod

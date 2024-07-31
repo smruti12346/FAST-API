@@ -1,10 +1,10 @@
 from db import db
 from datetime import datetime
 from bson import ObjectId
-from .common import paginate
+from services.common import paginate
 from services.smtpService import send_email
 import services.shippingService as shippingService
-from .userService import get_address_by_id, get_bank_details_by_id
+
 import time
 
 
@@ -88,6 +88,8 @@ def check_order_quantity_by_order(product_details):
 
 
 def order_placed(customer_id, product_details):
+    from services.userService import get_address_by_id
+
     try:
         orders = []
         productQuntityArrs = []
@@ -206,9 +208,14 @@ def order_placed(customer_id, product_details):
                 },
             )
 
+        if shippingDetails["status"] == "success":
+            status = 2
+        else:
+            status = 1
+
         # insert data after check quantity with status 1
         filter = {"_id": {"$in": resultInserted.inserted_ids}}
-        update = {"$set": {"status": 1}}
+        update = {"$set": {"status": status}}
         collection.update_many(filter, update)
 
         return {"message": "Order placed successfully", "status": "success"}
@@ -613,6 +620,9 @@ def find_variant(variants, variant_arr):
 
 def get_all_orders_by_user(request, user_id, page, show_page):
     try:
+        check_order_tracking_status_and_update_user_wise_deliver_or_not(
+            request, user_id
+        )
         pipeline = [
             {"$match": {"customer_id": user_id}},
             {"$sort": {"created_at": -1}},
@@ -811,11 +821,23 @@ def update_payment_status(order_id):
         return {"message": str(e), "status": "error"}
 
 
-def update_order_status(order_id, status):
+def update_order_status(order_id, status, customer_id, user_type):
     try:
+        if user_type != 1:
+            db_document = collection.find_one(
+                {"_id": ObjectId(order_id), "customer_id": customer_id}
+            )
+            if db_document == None:
+                return {"data": "Not authenticated", "status": "error"}
+
         result = collection.update_one(
             {"_id": ObjectId(order_id)},
-            {"$set": {"status": status}},
+            {
+                "$set": {
+                    "status": status,
+                    "updated_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                }
+            },
         )
         if result.modified_count == 1:
             return {"message": "status updated successfully", "status": "success"}
@@ -1172,5 +1194,55 @@ def get_order_invoice(data, background_tasks):
                 return {"message": "Unable to generate invoice", "status": "error"}
         else:
             return {"message": "No data found", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_order_details_by_id(request, order_id):
+    try:
+        result = list(collection.find({"_id": ObjectId(order_id), "deleted_at": None}))
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def check_order_tracking_status_and_update_deliver_or_not(request):
+    try:
+        results = list(collection.find({"status": 3, "deleted_at": None}))
+        for result in results:
+            trk_id = result["shipping_details"]["data"]["tracker"]["id"]
+            trk_details = shippingService.track_order_by_id(trk_id)
+            if trk_details["status"] == "success":
+                if trk_details["data"]["status"] == "delivered":
+                    collection.update_one(
+                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 4}}
+                    )
+        return {"data": "success", "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def check_order_tracking_status_and_update_user_wise_deliver_or_not(
+    request, customer_id
+):
+    try:
+        results = list(
+            collection.find(
+                {"status": 3, "customer_id": customer_id, "deleted_at": None}
+            )
+        )
+        for result in results:
+            trk_id = result["shipping_details"]["data"]["tracker"]["id"]
+            trk_details = shippingService.track_order_by_id(trk_id)
+            if trk_details["status"] == "success":
+                if trk_details["data"]["status"] == "delivered":
+                    collection.update_one(
+                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 4}}
+                    )
+        return {"data": "success", "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}

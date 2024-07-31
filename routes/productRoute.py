@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Body, Request, Query
+from fastapi import APIRouter, UploadFile, File, Body, Request, Query, Depends
 import services.productService as productService
 from services.common import resize_image
 from Models.Products import ProductModel, VariantItem
@@ -9,6 +9,7 @@ import uuid
 from os import getcwd
 import json
 import logging
+import services.userService as userService
 
 
 router = APIRouter()
@@ -22,6 +23,7 @@ def search_products(query: str = Query(...)):
 @router.get("/products/")
 def get_all(request: Request):
     return productService.get_all(request)
+
 
 @router.get("/all-products/{page}")
 def get_all_product(request: Request, page: int, show_page: int):
@@ -107,3 +109,25 @@ def update_only_product_quantity(product_id: str, total_quantity: int):
 def delete_product(product_id: str):
     return productService.delete_product(product_id)
 
+
+@router.post("/create-review")
+async def create_review(
+    product_id: str,
+    point: int,
+    review: str,
+    review_image: UploadFile = File(...),
+    token: str = Depends(userService.get_current_user),
+):
+    if "_id" in token:
+        return await productService.create_review(product_id, point, review, review_image, token)
+    else:
+        return await {"data": "Not authenticated", "status": "error"}
+
+
+@router.get("/get-product-wise-review/{product_id}")
+def get_product_wise_review(product_id: str):
+    return productService.get_product_wise_review(product_id)
+
+@router.get("/get-product-review/{product_id}")
+def get_product_review(product_id: str):
+    return productService.get_product_review(product_id)

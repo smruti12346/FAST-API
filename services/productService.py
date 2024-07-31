@@ -1,7 +1,24 @@
 from db import db
 from bson import ObjectId
 from .common import paginate
+import re
+import pymongo
+from os import getcwd
+import os
+import uuid
+from services.common import resize_image
+from pydantic import Field
+from datetime import datetime
+
 collection = db["product"]
+
+
+def generate_sku(product_name, unique_id):
+    cleaned_name = re.sub(r"[^a-zA-Z0-9\s]", "", product_name)
+    words = cleaned_name.split()
+    abbreviation = "".join(word[0].upper() for word in words)
+    sku = f"{abbreviation} {unique_id}"
+    return sku
 
 
 def create(product_data):
@@ -25,11 +42,17 @@ def create(product_data):
                 "status": "error",
             }
 
-        product_data["id"] = (
-            int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
-            if collection.find_one({}, sort=[("id", -1)]) is not None
-            else 1
+        latest_product = collection.find_one(
+            {}, sort=[("product_id", pymongo.DESCENDING)]
         )
+        if latest_product and "product_id" in latest_product:
+            unique_id = int(latest_product["product_id"]) + 1
+        else:
+            unique_id = 1
+
+        product_data["product_id"] = int(unique_id)
+        product_data["product_sku"] = generate_sku(product_data["name"], unique_id)
+
         result = collection.insert_one(product_data)
         return {
             "message": "data inserted successfully",
@@ -142,7 +165,8 @@ def get_all(request):
 
     except Exception as e:
         return {"message": str(e), "status": "error"}
-    
+
+
 def get_all_product(request, page, show_page):
     try:
         pipeline = [
@@ -247,13 +271,16 @@ def get_all_product(request, page, show_page):
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
+
 def search_products(query):
     try:
         collection.create_index([("name", "text")])
         results = []
-        cursor = collection.find({"$text": {"$search": query}}, {"name": 1, "slug": 1, "_id": 0}).limit(6)
+        cursor = collection.find(
+            {"$text": {"$search": query}}, {"name": 1, "slug": 1, "_id": 0}
+        ).limit(6)
         for document in cursor:
-            results.append(document)            
+            results.append(document)
         return {"data": results, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
@@ -562,3 +589,155 @@ def delete_product(product_id: str):
         return {"message": "data deleted successfully", "status": "success"}
     else:
         return {"message": "failed to delete", "status": "error"}
+
+
+async def create_review(product_id, point, review, review_image, token):
+    try:
+        data = db["review"].find_one(
+            {
+                "customer_id": str(token["_id"]),
+                "product_id": product_id,
+                "deleted_at": None,
+            }
+        )
+
+        if data == None:
+            product_details = collection.find_one(
+                {"_id": ObjectId(product_id), "deleted_at": None}
+            )
+
+            if product_details == None:
+                return {"message": "Product not found", "status": "error"}
+
+            PATH_FILES = getcwd() + "/uploads/review/"
+            os.makedirs(PATH_FILES, exist_ok=True)
+            filename = f"{uuid.uuid1()}-{os.path.splitext(review_image.filename)[0]}"
+            mainFileName = filename + os.path.splitext(review_image.filename)[1]
+
+            with open(PATH_FILES + mainFileName, "wb") as myfile:
+                content = await review_image.read()
+                myfile.write(content)
+                myfile.close()
+            resize_image(filename, mainFileName, PATH_FILES)
+
+            # category_data.image = filename + ".webp"
+
+            review_data = {
+                "customer_id": str(token["_id"]),
+                "product_id": product_id,
+                "point": point,
+                "review": review,
+                "image": filename + ".webp",
+                "status": 1,
+                "deleted_at": None,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "created_date": str(datetime.now().strftime("%Y-%m-%d")),
+                "created_time": str(datetime.now().strftime("%H:%M:%S")),
+                "created_by": None,
+                "updated_at": None,
+                "updated_by": None,
+            }
+
+            result = db["review"].insert_one(review_data)
+            return {
+                "message": "Review Updated",
+                "_id": str(result.inserted_id),
+                "status": "success",
+            }
+        else:
+            return {
+                "message": "review already exist for this product",
+                "status": "error",
+            }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_product_wise_review(product_id):
+    try:
+
+        pipeline = [
+            {"$match": {"status": 1, "product_id": product_id}},
+            {
+                "$group": {
+                    "_id": "$product_id",
+                    "total_reviews": {"$sum": 1},
+                    "total_points": {"$sum": "$point"},
+                    "point_counts": {"$push": "$point"},
+                }
+            },
+            {
+                "$project": {
+                    "total_reviews": 1,
+                    "total_points": 1,
+                    "total_count_times_five": {"$multiply": ["$total_reviews", 5]},
+                    "point_counts": {
+                        "$let": {
+                            "vars": {"points": [1, 2, 3, 4, 5]},
+                            "in": {
+                                "$arrayToObject": {
+                                    "$map": {
+                                        "input": "$$points",
+                                        "as": "point",
+                                        "in": {
+                                            "k": {"$toString": "$$point"},
+                                            "v": {
+                                                "$size": {
+                                                    "$filter": {
+                                                        "input": "$point_counts",
+                                                        "as": "p",
+                                                        "cond": {
+                                                            "$eq": ["$$p", "$$point"]
+                                                        },
+                                                    }
+                                                }
+                                            },
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        ]
+        result = list(db["review"].aggregate(pipeline))
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_product_review(product_id):
+    try:
+
+        pipeline = [
+            {"$match": {"status": 1, "product_id": product_id}},
+            {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "customer_id_obj",
+                    "foreignField": "_id",
+                    "as": "customer_details",
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "customer_id": 1,
+                    "product_id": {"$toString": "$product_id"},
+                    "point": 1,
+                    "review": 1,
+                    "image": 1,
+                    "status": 1,
+                    "order_tracking_id": 1,
+                    "status": 1,
+                    "customer_details.name": 1,
+                    "customer_details.email": 1,
+                }
+            },
+        ]
+        result = list(db["review"].aggregate(pipeline))
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}

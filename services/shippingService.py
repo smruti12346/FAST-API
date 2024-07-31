@@ -1,6 +1,10 @@
 import easypost
 import json
 import services.locationService as locationService
+from services import orderService
+from db import db
+from bson import ObjectId
+from datetime import datetime
 
 api_key = "2TDp15wsUbcC95Z42Y4BrQ"
 client = easypost.EasyPostClient(api_key)
@@ -79,6 +83,16 @@ def create_shipment_and_get_rates(data):
                     "phone": userAddressDetails["phone_number"],  # "4153334444",
                     "email": data["email"],  # "dr_steve_brule@gmail.com",
                 },
+                # to_address={
+                #     "name": "Dr. Steve Brule",
+                #     "street1":"Bapuji Nagar Lane No 5 67",
+                #     "city": "Bhubaneswar",
+                #     "state": "OD",
+                #     "zip": "751009",
+                #     "country": "IN",
+                #     "phone": userAddressDetails["phone_number"],  # "4153334444",
+                #     "email": data["email"],  # "dr_steve_brule@gmail.com",
+                # },
                 from_address={
                     "name": "EasyPost",
                     "street1": "417 Montgomery Street",
@@ -126,9 +140,75 @@ def buy_shipment_for_deliver(shp_id: str, rates_index: int):
         return {"message": str(e), "status": "error"}
 
 
-def track_order_by_id():
+def refund_shipment_before_deliver(shipping_id: str):
     try:
-        tracker = client.tracker.retrieve("trk_d58e98dcfc96452083a496b4ba3b9fbe")
+        shipment = client.shipment.refund(shipping_id)
+        return {"data": json.loads(json.dumps(shipment.to_dict())), "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def track_order_by_id(trk_id):
+    try:
+        tracker = client.tracker.retrieve(trk_id)
         return {"data": json.loads(json.dumps(tracker.to_dict())), "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def create_return_request(request, order_id):
+    try:
+        orderData = orderService.get_order_details_by_id(request, order_id)
+        if orderData["status"] == "success" and len(orderData["data"]) > 0:
+            shippingData = orderData["data"][0]["shipping_details"]
+            if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
+                buyer_address = shippingData["data"]["buyer_address"]["id"]
+                from_address = shippingData["data"]["from_address"]["id"]
+                parcel_id = shippingData["data"]["parcel"]["id"]
+
+                client = easypost.EasyPostClient("2TDp15wsUbcC95Z42Y4BrQ")
+
+                shipment = client.shipment.create(
+                    to_address={"id": buyer_address},
+                    from_address={"id": from_address},
+                    parcel={"id": parcel_id},
+                    is_return=True,
+                )
+
+                db["order"].update_one(
+                    {"_id": ObjectId(order_id)},
+                    {
+                        "$set": {
+                            "status": 6,
+                            "return_request_details": json.loads(
+                                json.dumps(shipment.to_dict())
+                            ),
+                            "updated_at": str(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ),
+                        }
+                    },
+                )
+                return {
+                    "data": "return request accepted successfully",
+                    "status": "success",
+                }
+
+            else:
+                return {"message": "Shipping details not found", "status": "error"}
+        else:
+            return {"message": "Order details not found", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def check_return_status(request, shipping_id):
+    try:
+        shipment = client.shipment.retrieve(shipping_id)
+        return {
+            "message": json.loads(json.dumps(shipment.to_dict())),
+            "status": "success",
+        }
+
     except Exception as e:
         return {"message": str(e), "status": "error"}
