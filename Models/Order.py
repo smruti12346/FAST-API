@@ -15,6 +15,7 @@ class OrderDetails(BaseModel):
     sale_price: float
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int
+    # purchase_units: Optional[dict] = {}
     @model_validator(mode="before")
     @classmethod
     def validate_to_json(cls, value):
@@ -41,7 +42,9 @@ class PaymentDetails(BaseModel):
 class OrderModel(BaseModel):
     # customer_id: str
     order_details: OrderDetails
-    payment_details: PaymentDetails
+    discount_id: Optional[str] = None
+    getway_name: str
+    # payment_details: PaymentDetails
     product_id: str
     order_tracking_id: str
     @model_validator(mode="before")

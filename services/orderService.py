@@ -1,17 +1,20 @@
+from fastapi import Request
 from db import db
 from datetime import datetime
 from bson import ObjectId
 from services.common import paginate
 from services.smtpService import send_email
 import services.shippingService as shippingService
-
+import services.productService as productService
+import services.paymentService as paymentService
+import uuid
 import time
 
 
 collection = db["order"]
 
 
-def update_variant_quantity(product, variant_arr, total_quantity):
+def update_variant_quantity(product, variant_arr, total_quantity, payment_id):
     current_variants = product["variant"]
 
     variant_names = []
@@ -20,7 +23,11 @@ def update_variant_quantity(product, variant_arr, total_quantity):
         # Traverse the variant structure to find the specified variant path
         for variant_index in variant_arr:
             if variant_index >= len(current_variants):
-                return {"message": "Variant not found.", "status": "error"}
+                return {
+                    "message": "Variant not found.",
+                    "payment_id": payment_id,
+                    "status": "error",
+                }
 
             current_variant = current_variants[variant_index]
             variant_names.append(current_variant["varient"])
@@ -33,6 +40,7 @@ def update_variant_quantity(product, variant_arr, total_quantity):
         if final_variant["quantity"] < total_quantity:
             return {
                 "message": f"Insufficient quantity for variant {final_variant['varient']}. Required: {total_quantity}, Available: {final_variant['quantity']}",
+                "payment_id": payment_id,
                 "status": "error",
             }
 
@@ -52,7 +60,7 @@ def check_order_quantity(product_id, varientArr):
         result = list(
             db["product"].find({"_id": ObjectId(product_id), "deleted_at": None})
         )
-        updated_product = update_variant_quantity(result[0], varientArr, 2)
+        updated_product = update_variant_quantity(result[0], varientArr, 2, "N/A")
         print(updated_product)
         # return updated_product
     except Exception as e:
@@ -77,6 +85,7 @@ def check_order_quantity_by_order(product_details):
                 result[0],
                 existing_order_data["order_details"]["varientArr"],
                 existing_order_data["order_details"]["total_quantity"],
+                "N/A",
             )
 
             if updated_product["status"] == "error":
@@ -87,78 +96,206 @@ def check_order_quantity_by_order(product_details):
         return {"message": str(e), "status": "error"}
 
 
-def order_placed(customer_id, product_details):
+def claculate_data(
+    product_id, total_quantity, deliveryCharges, discount_id, payment_id
+):
+    product_detail = productService.get_product_by_id(Request, product_id)
+    product_detail = (
+        product_detail["data"][0] if product_detail["status"] == "success" else None
+    )
+    total_price = float(float(product_detail["sale_price"]) * total_quantity) + float(
+        deliveryCharges
+    )
+    return total_price
+
+
+def order_create(customer_id, product_details):
     from services.userService import get_address_by_id
 
     try:
         orders = []
         productQuntityArrs = []
+        paymetUnitsArr = []
 
-        if len(product_details) == 0:
+        order_models_dict_array = [order.dict() for order in product_details]
+
+        if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
 
-        for existing_order in product_details:
-            shp_id = existing_order.dict()["order_tracking_id"]
-            shp_rate_id = existing_order.dict()["order_details"]["shippingRateId"]
+        active_payment_details = paymentService.view_by_getway_name(
+            order_models_dict_array[0]["getway_name"]
+        )
 
-        shippingDetails = shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id)
-
-        for existing_order in product_details:
-            data = existing_order.dict()
-            data["customer_id"] = customer_id
-            address = get_address_by_id(data["customer_id"])
-            if address["status"] == "success":
-                primary_status_items = (
-                    [
-                        item
-                        for item in address["data"]
-                        if item["primary_status"] == 1
-                        and item.get("deleted_at") is None
-                        and item["status"] == 1
-                    ]
-                    if address.get("data")
-                    else []
-                )
-                if len(primary_status_items) == 0:
-                    return {"message": "Please enter your address", "status": "error"}
-
-                data["address"] = primary_status_items[0]
-
-            data["bank_details"] = []
-            data["shipping_details"] = shippingDetails
-            data["status"] = 0
-            data["deleted_at"] = None
-            data["created_by"] = data["customer_id"]
-            data["updated_by"] = None
-            data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
-            data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
-            data["updated_at"] = None
-
-            data["order_details"]["order_date"] = str(
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            )
-            data["order_details"]["order_cancel_status"] = None
-            data["order_details"]["order_cancel_date"] = None
-            data["order_details"]["order_cancel_amount"] = None
-            data["order_details"]["shipped_date"] = None
-            data["order_details"]["shipped_id"] = None
-            data["order_details"]["delivery_date"] = None
-
-            productQuntityArr = {
-                "_id": data["product_id"],
-                "total_quantity": data["order_details"]["total_quantity"],
+        if (
+            active_payment_details["status"] == "success"
+            and len(active_payment_details["data"]) > 0
+        ):
+            client_id = active_payment_details["data"][0]["api_key"]
+            secret_key = active_payment_details["data"][0]["password"]
+            currency_code = active_payment_details["data"][0]["currency"]
+            return_url = active_payment_details["data"][0]["return_url"]
+            cancel_url = active_payment_details["data"][0]["cancel_url"]
+        else:
+            return {
+                "message": "There is some internal problem we unable to proceed your order, please try again later",
+                "status": "error",
             }
 
-            productQuntityArrs.append(productQuntityArr)
-            orders.append(data)
+        for product_detail in order_models_dict_array:
+            total_price = claculate_data(
+                product_detail["product_id"],
+                product_detail["order_details"]["total_quantity"],
+                product_detail["order_details"]["deliveryCharges"],
+                product_detail["discount_id"],
+                product_detail["getway_name"],
+            )
+            purchase_units = {
+                "reference_id": str(uuid.uuid1()),
+                "amount": {"value": total_price, "currency_code": currency_code},
+            }
+            product_detail["order_details"]["purchase_units"] = purchase_units
+            paymetUnitsArr.append(purchase_units)
 
-        # insert data before check quantity with status 0
-        resultInserted = collection.insert_many(orders)
+        paymentLinks = paymentService.create_paypal_order(
+            paymetUnitsArr, client_id, secret_key, return_url, cancel_url
+        )
 
-        # check quantity
-        for existing_order in product_details:
-            existing_order_data = existing_order.dict()
+        paymentLinkGenerationStatus = (
+            "success" if "id" in paymentLinks["response"] else "error"
+        )
+
+        if paymentLinkGenerationStatus == "success":
+
+            for data in order_models_dict_array:
+                data["payment_id"] = paymentLinks["response"]["id"]
+                data["customer_id"] = customer_id
+                address = get_address_by_id(data["customer_id"])
+                if address["status"] == "success":
+                    primary_status_items = (
+                        [
+                            item
+                            for item in address["data"]
+                            if item["primary_status"] == 1
+                            and item.get("deleted_at") is None
+                            and item["status"] == 1
+                        ]
+                        if address.get("data")
+                        else []
+                    )
+                    if len(primary_status_items) == 0:
+                        return {
+                            "message": "Please enter your address",
+                            "status": "error",
+                        }
+
+                    data["address"] = primary_status_items[0]
+
+                data["bank_details"] = []
+
+                data["status"] = 1
+                data["deleted_at"] = None
+                data["created_by"] = data["customer_id"]
+                data["updated_by"] = None
+                data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
+                data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
+                data["updated_at"] = None
+
+                data["order_details"]["order_date"] = str(
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+                data["order_details"]["order_cancel_status"] = None
+                data["order_details"]["order_cancel_date"] = None
+                data["order_details"]["order_cancel_amount"] = None
+                data["order_details"]["shipped_date"] = None
+                data["order_details"]["shipped_id"] = None
+                data["order_details"]["delivery_date"] = None
+
+                productQuntityArr = {
+                    "_id": data["product_id"],
+                    "total_quantity": data["order_details"]["total_quantity"],
+                }
+
+                productQuntityArrs.append(productQuntityArr)
+                orders.append(data)
+
+            collection.insert_many(orders)
+
+            return paymentLinks
+        else:
+            return {
+                "message": "Unable to generate payment link, please try again later",
+                "status": "error",
+            }
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def capture_created_order(cutomer_id, payment_id):
+    try:
+
+        results = list(collection.find({"payment_id": payment_id}))
+
+        if len(results) == 0:
+            return {
+                "message": "Your order not found",
+                "payment_id": payment_id,
+                "status": "error",
+            }
+
+        for existing_order in results:
+            shp_id = existing_order["order_tracking_id"]
+            shp_rate_id = existing_order["order_details"]["shippingRateId"]
+
+            getway_name = existing_order["getway_name"]
+
+        active_payment_details = paymentService.view_by_getway_name(getway_name)
+
+        if (
+            active_payment_details["status"] == "success"
+            and len(active_payment_details["data"]) > 0
+        ):
+            client_id = active_payment_details["data"][0]["api_key"]
+            secret_key = active_payment_details["data"][0]["password"]
+
+        # capture the payment start
+        paymentDetails = paymentService.capture_paypal_order(
+            payment_id, client_id, secret_key
+        )
+        if "id" not in paymentDetails["response"]:
+            return {
+                "message": paymentDetails["response"]["details"][0]["description"],
+                "payment_id": payment_id,
+                "status": "error",
+            }
+        # capture the payment end
+
+        # buy shipment start
+        shippingDetails = shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id)
+        if shippingDetails["status"] == "success":
+            status = 3
+        else:
+            status = 2
+        filter = {"payment_id": payment_id}
+        update = {
+            "$set": {
+                "status": status,
+                "paymentDetails": paymentDetails,
+                "shippingDetails": shippingDetails,
+            }
+        }
+        collection.update_many(filter, update)
+        if shippingDetails["status"] == "error":
+            return {
+                "message": "shipping failed! don't worry your money will be refunded",
+                "payment_id": payment_id,
+                "status": "error",
+            }
+        # buy shipment end
+
+        # check quantity start
+        for existing_order_data in results:
             result = list(
                 db["product"].find(
                     {
@@ -171,14 +308,15 @@ def order_placed(customer_id, product_details):
                 result[0],
                 existing_order_data["order_details"]["varientArr"],
                 existing_order_data["order_details"]["total_quantity"],
+                payment_id,
             )
 
             if updated_product["status"] == "error":
                 return updated_product
+        # check quantity end
 
         # update quantity and varient after check quantity
-        for existing_order in product_details:
-            existing_order_data = existing_order.dict()
+        for existing_order_data in results:
             result = list(
                 db["product"].find(
                     {
@@ -191,8 +329,8 @@ def order_placed(customer_id, product_details):
                 result[0],
                 existing_order_data["order_details"]["varientArr"],
                 existing_order_data["order_details"]["total_quantity"],
+                payment_id,
             )
-
             db["product"].update_one(
                 {"_id": ObjectId(existing_order_data["product_id"])},
                 {
@@ -208,20 +346,20 @@ def order_placed(customer_id, product_details):
                 },
             )
 
-        if shippingDetails["status"] == "success":
-            status = 2
-        else:
-            status = 1
-
-        # insert data after check quantity with status 1
-        filter = {"_id": {"$in": resultInserted.inserted_ids}}
-        update = {"$set": {"status": status}}
+        filter = {"payment_id": payment_id}
+        update = {
+            "$set": {
+                "status": 5,
+            }
+        }
         collection.update_many(filter, update)
-
-        return {"message": "Order placed successfully", "status": "success"}
-
+        return {
+            "message": "Order placed successfully",
+            "payment_id": payment_id,
+            "status": "success",
+        }
     except Exception as e:
-        return {"message": str(e), "status": "error"}
+        return {"message": str(e), "payment_id": payment_id, "status": "error"}
 
 
 def check_quantity(document):
@@ -453,6 +591,7 @@ def get_all_orders(request, page, show_page):
                     "customer_id": 1,
                     "product_id": {"$toString": "$product_id"},
                     "order_details": 1,
+                    "getway_name": 1,
                     "payment_details": 1,
                     "address": 1,
                     "bank_details": 1,
@@ -573,7 +712,7 @@ def get_orders_by_counts(request, page, show_page):
                     "customer_id": 1,
                     "product_id": {"$toString": "$product_id"},
                     "order_details": 1,
-                    "payment_details": 1,
+                    "getway_name": 1,
                     "address": 1,
                     "bank_details": 1,
                     "order_tracking_id": 1,
@@ -638,8 +777,8 @@ def get_all_orders_by_user(request, user_id, page, show_page):
             {
                 "$lookup": {
                     "from": "location",
-                    "localField": "address.country_id",
-                    "foreignField": "id",
+                    "localField": "address.country_code",
+                    "foreignField": "iso2",
                     "as": "country_details",
                 }
             },
@@ -648,7 +787,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.id", "$address.state_id"]
+                        "$eq": ["$country_details.states.state_code", "$address.state_code"]
                     }
                 }
             },
@@ -656,7 +795,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.cities.id", "$address.city_id"]
+                        "$eq": ["$country_details.states.cities.name", "$address.city_name"]
                     }
                 }
             },
@@ -672,9 +811,9 @@ def get_all_orders_by_user(request, user_id, page, show_page):
                     },
                     "product_details.name": "$product_details.name",
                     "product_details.slug": "$product_details.slug",
-                    "address.country_name": "$country_details.name",
-                    "address.state_name": "$country_details.states.name",
-                    "address.city_name": "$country_details.states.cities.name",
+                    # "address.country_name": "$country_details.name",
+                    # "address.state_name": "$country_details.states.name",
+                    # "address.city_name": "$country_details.states.cities.name",
                 }
             },
             {
@@ -935,6 +1074,7 @@ def get_all_orders_status_wise(request, statusArr, page, show_page):
                     "customer_id": 1,
                     "product_id": {"$toString": "$product_id"},
                     "order_details": 1,
+                    "getway_name": 1,
                     "payment_details": 1,
                     "address": 1,
                     "bank_details": 1,

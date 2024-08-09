@@ -286,35 +286,35 @@ def update_address(id, email, data):
     try:
         data = dict(data)
         # print(data)
-        country_details = locationService.get_country_by_id(data["country_id"])["data"]
-        state_details = locationService.get_states_by_state_id_and_country_id(
-            data["country_id"], data["state_id"]
-        )["data"]
-        city_details = locationService.get_city_by_city_id_country_id_and_state_id(
-            data["country_id"], data["state_id"], data["city_id"]
-        )["data"]
+        # country_details = locationService.get_country_by_id(data["country_id"])["data"]
+        # state_details = locationService.get_states_by_state_id_and_country_id(
+        #     data["country_id"], data["state_id"]
+        # )["data"]
+        # city_details = locationService.get_city_by_city_id_country_id_and_state_id(
+        #     data["country_id"], data["state_id"], data["city_id"]
+        # )["data"]
 
-        if country_details and len(country_details) > 0:
-            country_iso = country_details[0]["name"]
-        else:
-            return {"message": "Country not found", "status": "error"}
+        # if country_details and len(country_details) > 0:
+        #     country_iso = country_details[0]["name"]
+        # else:
+        #     return {"message": "Country not found", "status": "error"}
 
-        if state_details and len(state_details) > 0:
-            state_code = state_details[0]["state_code"]
-        else:
-            return {"message": "Country not found", "status": "error"}
+        # if state_details and len(state_details) > 0:
+        #     state_code = state_details[0]["state_code"]
+        # else:
+        #     return {"message": "Country not found", "status": "error"}
 
-        if city_details and len(city_details) > 0:
-            city_name = city_details[0]["name"]
-        else:
-            return {"message": "Country not found", "status": "error"}
+        # if city_details and len(city_details) > 0:
+        #     city_name = city_details[0]["name"]
+        # else:
+        #     return {"message": "Country not found", "status": "error"}
 
         shippingDetails = shippingService.validate_address(
             data["roadName_area_colony"],
-            city_name,
-            state_code,
+            data["city_name"],
+            data["state_code"],
             data["pin_number"],
-            country_iso,
+            data["country_code"],
             email,
             data["phone_number"],
         )

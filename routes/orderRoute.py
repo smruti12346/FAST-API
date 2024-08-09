@@ -47,15 +47,30 @@ def check_order_quantity_by_order(product_details: List[OrderModel] = Body(...))
     return orderService.check_order_quantity_by_order(product_details)
 
 
-@router.post("/order_placed/")
-def order_placed(
+@router.post("/order_create/")
+def order_create(
     product_details: List[OrderModel] = Body(...),
     token: str = Depends(userService.get_current_user),
 ):
     if "_id" in token:
-        return orderService.order_placed(str(token["_id"]), product_details)
+        return orderService.order_create(str(token["_id"]), product_details)
     else:
         return {"data": "Not authenticated", "status": "error"}
+
+
+@router.post("/capture-created-order/")
+def capture_created_order(payment_id: str):
+    return orderService.capture_created_order("hi", payment_id)
+# def capture_created_order(
+#     payment_id: str, token: str = Depends(userService.get_current_user)
+# ):
+#     if "_id" in token:
+#         return orderService.capture_created_order(str(token["_id"]), payment_id)
+#     else:
+#         return {"data": "Not authenticated", "status": "error"}
+
+
+
 
 
 @router.get("/orders/")
@@ -93,9 +108,13 @@ def get_all_orders_by_user(
 
 
 @router.put("/update-order-status/{order_id}")
-def update_order_status(order_id: str, status: int, token: str = Depends(userService.get_current_user)):
+def update_order_status(
+    order_id: str, status: int, token: str = Depends(userService.get_current_user)
+):
     if "_id" in token:
-        return orderService.update_order_status(order_id, status, str(token['_id']), token['user_type'])
+        return orderService.update_order_status(
+            order_id, status, str(token["_id"]), token["user_type"]
+        )
     else:
         return {"data": "Not authenticated", "status": "error"}
 
@@ -137,5 +156,3 @@ def check_order_tracking_status_and_update_user_wise_deliver_or_not(
         )
     else:
         return {"data": "Not authenticated", "status": "error"}
-
-

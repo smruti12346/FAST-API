@@ -6,6 +6,8 @@ from db import db
 from bson import ObjectId
 from datetime import datetime
 
+import services.paymentService as paymentService
+
 api_key = "2TDp15wsUbcC95Z42Y4BrQ"
 client = easypost.EasyPostClient(api_key)
 
@@ -41,32 +43,32 @@ def create_shipment_and_get_rates(data):
 
         if userAddressDetails != "":
 
-            country_details = locationService.get_country_by_id(
-                userAddressDetails["country_id"]
-            )["data"]
-            state_details = locationService.get_states_by_state_id_and_country_id(
-                userAddressDetails["country_id"], userAddressDetails["state_id"]
-            )["data"]
-            city_details = locationService.get_city_by_city_id_country_id_and_state_id(
-                userAddressDetails["country_id"],
-                userAddressDetails["state_id"],
-                userAddressDetails["city_id"],
-            )["data"]
+            # country_details = locationService.get_country_by_id(
+            #     userAddressDetails["country_id"]
+            # )["data"]
+            # state_details = locationService.get_states_by_state_id_and_country_id(
+            #     userAddressDetails["country_id"], userAddressDetails["state_id"]
+            # )["data"]
+            # city_details = locationService.get_city_by_city_id_country_id_and_state_id(
+            #     userAddressDetails["country_id"],
+            #     userAddressDetails["state_id"],
+            #     userAddressDetails["city_id"],
+            # )["data"]
 
-            if country_details and len(country_details) > 0:
-                country = country_details[0]["iso2"]
-            else:
-                return {"message": "Country not found", "status": "error"}
+            # if country_details and len(country_details) > 0:
+            #     country = country_details[0]["iso2"]
+            # else:
+            #     return {"message": "Country not found", "status": "error"}
 
-            if state_details and len(state_details) > 0:
-                state = state_details[0]["state_code"]
-            else:
-                return {"message": "Country not found", "status": "error"}
+            # if state_details and len(state_details) > 0:
+            #     state = state_details[0]["state_code"]
+            # else:
+            #     return {"message": "Country not found", "status": "error"}
 
-            if city_details and len(city_details) > 0:
-                city = city_details[0]["name"]
-            else:
-                return {"message": "Country not found", "status": "error"}
+            # if city_details and len(city_details) > 0:
+            #     city = city_details[0]["name"]
+            # else:
+            #     return {"message": "Country not found", "status": "error"}
 
             shipment = client.shipment.create(
                 # carrier_accounts=["ca_c42e6d3b0c3c4964ae880ce2f0e62588"],
@@ -76,10 +78,10 @@ def create_shipment_and_get_rates(data):
                     "street1": userAddressDetails[
                         "roadName_area_colony"
                     ],  # "179 N Harbor Dr",
-                    "city": city,  # "Redondo Beach",
-                    "state": state,  # "CA",
+                    "city": userAddressDetails["city_name"],  # "Redondo Beach",
+                    "state": userAddressDetails["state_code"],  # "CA",
                     "zip": userAddressDetails["pin_number"],  # "90277",
-                    "country": country,  # "US",
+                    "country": userAddressDetails["country_code"],  # "US",
                     "phone": userAddressDetails["phone_number"],  # "4153334444",
                     "email": data["email"],  # "dr_steve_brule@gmail.com",
                 },
@@ -125,9 +127,9 @@ def create_shipment_and_get_rates(data):
 def buy_shipment_for_deliver(shp_id: str, rates_index: int):
     try:
         retrieved_shipment = client.shipment.retrieve(shp_id)
-        print(retrieved_shipment)
-        print(retrieved_shipment.lowest_rate())
-        print(retrieved_shipment.rates[rates_index])
+        # print(retrieved_shipment)
+        # print(retrieved_shipment.lowest_rate())
+        # print(retrieved_shipment.rates[rates_index])
 
         shipment = client.shipment.buy(
             retrieved_shipment.id,
@@ -160,11 +162,32 @@ def create_return_request(request, order_id):
     try:
         orderData = orderService.get_order_details_by_id(request, order_id)
         if orderData["status"] == "success" and len(orderData["data"]) > 0:
-            shippingData = orderData["data"][0]["shipping_details"]
+            shippingData = orderData["data"][0]["shippingDetails"]
+
             if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
                 buyer_address = shippingData["data"]["buyer_address"]["id"]
                 from_address = shippingData["data"]["from_address"]["id"]
                 parcel_id = shippingData["data"]["parcel"]["id"]
+
+                payment_id = orderData["data"][0]["payment_id"]
+                reference_id = orderData["data"][0]["order_details"]["purchase_units"][
+                    "reference_id"
+                ]
+
+                active_payment_details = paymentService.view_by_getway_name(orderData["data"][0]["getway_name"])
+
+                if (
+                    active_payment_details["status"] == "success"
+                    and len(active_payment_details["data"]) > 0
+                ):
+                    client_id = active_payment_details["data"][0]["api_key"]
+                    secret_key = active_payment_details["data"][0]["password"]
+
+                payment_refund_details = paymentService.refund_paypal_payment(
+                    payment_id, reference_id, client_id, secret_key
+                )
+                if payment_refund_details['status'] == "error":
+                    return {"data": payment_refund_details['message'], "status": "error"}
 
                 client = easypost.EasyPostClient("2TDp15wsUbcC95Z42Y4BrQ")
 
@@ -179,10 +202,12 @@ def create_return_request(request, order_id):
                     {"_id": ObjectId(order_id)},
                     {
                         "$set": {
-                            "status": 6,
+                            # "status": 6,
+                            "status": 10,
                             "return_request_details": json.loads(
                                 json.dumps(shipment.to_dict())
                             ),
+                            "payment_refund_details": payment_refund_details,
                             "updated_at": str(
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ),

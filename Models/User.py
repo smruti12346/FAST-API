@@ -58,9 +58,9 @@ class UserModelUpdate(BaseModel):
 class UserModelAddressUpdate(BaseModel):
     full_name: str 
     phone_number: str
-    country_id: int
-    state_id: int
-    city_id: int
+    country_code: str
+    state_code: str
+    city_name: str
     pin_number: str
     roadName_area_colony: str
     house_bulding_name: str
