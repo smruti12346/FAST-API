@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Body, Request, Query, Depends
 import services.productService as productService
 from services.common import resize_image
 from Models.Products import ProductModel, VariantItem
-import services.scripts as scripts
 from typing import List
 import os
 import uuid
@@ -15,32 +14,10 @@ import services.userService as userService
 router = APIRouter()
 
 
-@router.get("/search_products/")
-def search_products(query: str = Query(...)):
-    return productService.search_products(query)
-
-
-@router.get("/products/")
-def get_all(request: Request):
-    return productService.get_all(request)
-
-
-@router.get("/all-products/{page}")
-def get_all_product(request: Request, page: int, show_page: int):
-    return productService.get_all_product(request, page, show_page)
-
-
-@router.get("/products/{product_id}")
-def get_product_by_id(request: Request, product_id: str):
-    return productService.get_product_by_id(request, product_id)
-
-
-@router.get("/products_by_slug/{product_slug}")
-def get_product_by_slug(request: Request, product_slug: str):
-    return productService.get_product_by_slug(request, product_slug)
-
-
-@router.post("/products/")
+# ======================================================================================================
+# ======================================================================================================
+# ======================================================================================================
+@router.post("/products/", tags=["PRODUCT MANAGEMENT"])
 async def generate_dummy_product(
     product_data: ProductModel = Body(...),
     cover_image: UploadFile = File(...),
@@ -90,27 +67,64 @@ async def generate_dummy_product(
         return {"error": "An error occurred while creating product."}
 
 
-@router.put("/products/{product_id}")
+@router.get("/products/", tags=["PRODUCT MANAGEMENT"])
+def get_all(request: Request):
+    return productService.get_all(request)
+
+
+@router.get("/all-products/{page}", tags=["PRODUCT MANAGEMENT"])
+def get_all_product(request: Request, page: int, show_page: int):
+    return productService.get_all_product(request, page, show_page)
+
+
+@router.put("/products/{product_id}", tags=["PRODUCT MANAGEMENT"])
 def update_product(product_id: str, product_data: ProductModel):
     return productService.update(product_id, product_data)
 
 
-@router.put("/update_product_variant/{product_id}")
-def update_product_variant(product_id: str, VariantItem: List[VariantItem]):
-    return productService.update_product_variant(product_id, VariantItem)
-
-
-@router.put("/update_only_product_quantity/{product_id}")
-def update_only_product_quantity(product_id: str, total_quantity: int):
-    return productService.update_only_product_quantity(product_id, total_quantity)
-
-
-@router.delete("/products/{product_id}")
+@router.delete("/products/{product_id}", tags=["PRODUCT MANAGEMENT"])
 def delete_product(product_id: str):
     return productService.delete_product(product_id)
 
 
-@router.post("/create-review")
+@router.get("/products/{product_id}", tags=["PRODUCT FILTER"])
+def get_product_by_id(request: Request, product_id: str):
+    return productService.get_product_by_id(request, product_id)
+
+
+@router.get("/products_by_slug/{product_slug}", tags=["PRODUCT FILTER"])
+def get_product_by_slug(request: Request, product_slug: str):
+    return productService.get_product_by_slug(request, product_slug)
+
+
+@router.get("/search_products/", tags=["PRODUCT FILTER"])
+def search_products(query: str = Query(...)):
+    return productService.search_products(query)
+
+
+# ======================================================================================================
+# ======================================================================================================
+# ======================================================================================================
+@router.put(
+    "/update_product_variant/{product_id}",
+    tags=["PRODUCT VARIENT / QUANTITY MANAGEMENT"],
+)
+def update_product_variant(product_id: str, VariantItem: List[VariantItem]):
+    return productService.update_product_variant(product_id, VariantItem)
+
+
+@router.put(
+    "/update_only_product_quantity/{product_id}",
+    tags=["PRODUCT VARIENT / QUANTITY MANAGEMENT"],
+)
+def update_only_product_quantity(product_id: str, total_quantity: int):
+    return productService.update_only_product_quantity(product_id, total_quantity)
+
+
+# ======================================================================================================
+# ======================================================================================================
+# ======================================================================================================
+@router.post("/create-review", tags=["PRODUCT REVIEW MANAGEMENT"])
 async def create_review(
     product_id: str,
     point: int,
@@ -119,15 +133,23 @@ async def create_review(
     token: str = Depends(userService.get_current_user),
 ):
     if "_id" in token:
-        return await productService.create_review(product_id, point, review, review_image, token)
+        return await productService.create_review(
+            product_id, point, review, review_image, token
+        )
     else:
         return await {"data": "Not authenticated", "status": "error"}
 
 
-@router.get("/get-product-wise-review/{product_id}")
+@router.get("/get-product-wise-review/{product_id}", tags=["PRODUCT REVIEW MANAGEMENT"])
 def get_product_wise_review(product_id: str):
     return productService.get_product_wise_review(product_id)
 
-@router.get("/get-product-review/{product_id}")
+
+@router.get("/get-products-wise-reviews/{page}/", tags=["PRODUCT REVIEW MANAGEMENT"])
+def get_products_wise_reviews(request: Request, page: int, show_page: int):
+    return productService.get_products_wise_reviews(request, page, show_page)
+
+
+@router.get("/get-product-review/{product_id}", tags=["PRODUCT REVIEW MANAGEMENT"])
 def get_product_review(product_id: str):
     return productService.get_product_review(product_id)

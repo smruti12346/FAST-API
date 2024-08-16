@@ -4,7 +4,7 @@ import os
 from fastapi.staticfiles import StaticFiles
 from os import getcwd
 
-from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute
+from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute
 
 GOOGLE_CLIENT_ID = (
     "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
@@ -27,6 +27,7 @@ app.add_middleware(
         "http://localhost:3001",
         "https://ecomm-python-next.vercel.app",
         "https://python-next-ecommerce-frontend.vercel.app",
+        "https://zvu.shoppingxperts.com/",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
@@ -53,9 +54,6 @@ app.include_router(locationRoute.router)
 # ORDER ROUTE START
 app.include_router(orderRoute.router)
 
-# EMAIL ROUTE START
-app.include_router(emailRoute.router)
-
 # REPORT ROUTE START
 app.include_router(reportsRoute.router)
 
@@ -68,8 +66,14 @@ app.include_router(componentRoute.router)
 # PAGES ROUTE START
 app.include_router(pageRoute.router)
 
-# PAGES ROUTE START
+# PAYMENT ROUTE START
 app.include_router(paymentRoute.router)
+
+# WISHLIST ROUTE START
+app.include_router(wishlistRoute.router)
+
+# EMAIL ROUTE START
+app.include_router(emailRoute.router)
 
 # SCRIPT ROUTE START
 app.include_router(scriptsRoute.router)

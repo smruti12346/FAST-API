@@ -26,7 +26,7 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
         placed_order_count = db["order"].count_documents(
             {
                 "$and": [
-                    {"status": 2},
+                    {"status": 5},
                     {"created_date": {"$gte": start_date, "$lte": end_date}},
                 ]
             }
@@ -35,7 +35,7 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
         return_request_count = db["order"].count_documents(
             {
                 "$and": [
-                    {"status": 4},
+                    {"status": 7},
                     {"created_date": {"$gte": start_date, "$lte": end_date}},
                 ]
             }

@@ -5,6 +5,7 @@ from .productService import get_product_details_by_id, get_product_by_id
 from datetime import datetime
 from bson import ObjectId
 import logging
+import services.shippingService as shippingService
 
 collection = db["cart"]
 
@@ -147,6 +148,17 @@ def get_cart_details_by_product_arr(request, items):
             product_data = get_product_by_id(request, item)
             if product_data["data"] and len(product_data["data"]) > 0:
                 data.append(product_data["data"][0])
-        return {"data": data, "status": "success"}
+        
+        AdminShipingDetails = shippingService.view_by_status(1)
+        amount_for_free_shipping = 5000
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            amount_for_free_shipping = AdminShipingDetails["data"][0][
+                "amount_for_free_shipping"
+            ]
+        
+        return {"data": data, "amount_for_free_shipping": amount_for_free_shipping, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}

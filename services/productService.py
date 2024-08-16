@@ -741,3 +741,93 @@ def get_product_review(product_id):
         return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+def get_products_wise_reviews(request, page, show_page):
+    try:
+        pipeline = [
+            {"$match": {"status": 1, "deleted_at": None}},
+            {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
+            {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
+            {
+                "$lookup": {
+                    "from": "product",
+                    "localField": "product_id_obj",
+                    "foreignField": "_id",
+                    "as": "product_details",
+                }
+            },
+            {"$unwind": "$product_details"},
+            {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$product_details.cover_image",
+                        ]
+                    },
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "customer_id_obj",
+                    "foreignField": "_id",
+                    "as": "customer_details",
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "customer_id": 1,
+                    "product_id": 1,
+                    "point": 1,
+                    "review": 1,
+                    "image": 1,
+                    "status": 1,
+                    "order_tracking_id": 1,
+                    "status": 1,
+                    "customer_details.name": 1,
+                    "customer_details.email": 1,
+                    "product_details_name": "$product_details.name",
+                    "imageUrl": 1,
+                    "imageUrl100": 1,
+                    "created_at": 1,
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$product_id",
+                    "grouped_data": {"$push": "$$ROOT"},
+                    "product_name": {"$first": "$product_details_name"},
+                    "product_imageUrl": {"$first": "$imageUrl"},
+                    "product_imageUrl100": {"$first": "$imageUrl100"},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": "$_id",
+                    "product_name": 1,
+                    "product_imageUrl": 1,
+                    "product_imageUrl100": 1,
+                    "grouped_data": 1,
+                }
+            },
+        ]
+        documents = paginate(db["review"], pipeline, page, show_page)
+        return {"data": documents, "status": "success"}
+
+        # result = list(db["review"].aggregate(pipeline))
+        # return {"data": result, "status": "success"}
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}

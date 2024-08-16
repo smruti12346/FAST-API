@@ -47,6 +47,17 @@ class OrderModel(BaseModel):
     # payment_details: PaymentDetails
     product_id: str
     order_tracking_id: str
+
+    bank_details: Optional[List] = []
+    status: Optional[int] = Field(default=1)
+    deleted_at: Optional[str] = None
+    created_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    created_date: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d")))
+    created_time: Optional[str] = Field(default=str(datetime.now().strftime("%H:%M:%S")))
+    created_by: Optional[str] = None
+    updated_at: Optional[str] = None
+    updated_by: Optional[str] = None
+
     @model_validator(mode="before")
     @classmethod
     def validate_to_json(cls, value):

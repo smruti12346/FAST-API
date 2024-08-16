@@ -113,19 +113,17 @@ def order_create(customer_id, product_details):
     from services.userService import get_address_by_id
 
     try:
-        orders = []
-        productQuntityArrs = []
-        paymetUnitsArr = []
-
+        # Initialize variables
+        orders, productQuntityArrs, paymetUnitsArr = [], [], []
+        total_price, purchase_units_total_price = 0, 0
         order_models_dict_array = [order.dict() for order in product_details]
-
         if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
 
+        # Retrieve Payment Details
         active_payment_details = paymentService.view_by_getway_name(
             order_models_dict_array[0]["getway_name"]
         )
-
         if (
             active_payment_details["status"] == "success"
             and len(active_payment_details["data"]) > 0
@@ -141,31 +139,89 @@ def order_create(customer_id, product_details):
                 "status": "error",
             }
 
+        # Retrieve Shipping Details
+        AdminShipingDetails = shippingService.view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            amount_for_free_shipping = AdminShipingDetails["data"][0][
+                "amount_for_free_shipping"
+            ]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
+
+        # Calculate Prices
         for product_detail in order_models_dict_array:
-            total_price = claculate_data(
-                product_detail["product_id"],
-                product_detail["order_details"]["total_quantity"],
-                product_detail["order_details"]["deliveryCharges"],
-                product_detail["discount_id"],
-                product_detail["getway_name"],
+            total_price += float(
+                claculate_data(
+                    product_detail["product_id"],
+                    product_detail["order_details"]["total_quantity"],
+                    0,
+                    product_detail["discount_id"],
+                    product_detail["getway_name"],
+                )
             )
-            purchase_units = {
-                "reference_id": str(uuid.uuid1()),
-                "amount": {"value": total_price, "currency_code": currency_code},
-            }
+
+        # Prepare Payment Units
+        for product_detail in order_models_dict_array:
+            purchase_units_total_price += float(
+                claculate_data(
+                    product_detail["product_id"],
+                    product_detail["order_details"]["total_quantity"],
+                    0,
+                    product_detail["discount_id"],
+                    product_detail["getway_name"],
+                )
+            )
+
+            if total_price > amount_for_free_shipping:
+                purchase_units = {
+                    "reference_id": str(uuid.uuid1()),
+                    "amount": {"value": total_price, "currency_code": currency_code},
+                }
+                product_detail["order_details"]["deliveryCharges"] = 0
+                product_detail["order_details"][
+                    "total_price"
+                ] = purchase_units_total_price
+
+            else:
+                shippingRateDetails = shippingService.get_created_shipment_details(
+                    product_detail["order_tracking_id"]
+                )
+                shippingRates = float(
+                    shippingRateDetails["data"]["rates"][
+                        product_detail["order_details"]["shippingRateId"]
+                    ]["rate"]
+                )
+
+                purchase_units = {
+                    "reference_id": str(uuid.uuid1()),
+                    "amount": {
+                        "value": total_price
+                        + (shippingRates / len(order_models_dict_array)),
+                        "currency_code": currency_code,
+                    },
+                }
+                product_detail["order_details"]["deliveryCharges"] = (
+                    shippingRates / len(order_models_dict_array)
+                )
+                product_detail["order_details"]["total_price"] = (
+                    purchase_units_total_price
+                    + float(shippingRates / len(order_models_dict_array))
+                )
+
             product_detail["order_details"]["purchase_units"] = purchase_units
             paymetUnitsArr.append(purchase_units)
 
+        # Generate Payment Link
         paymentLinks = paymentService.create_paypal_order(
             paymetUnitsArr, client_id, secret_key, return_url, cancel_url
         )
-
         paymentLinkGenerationStatus = (
             "success" if "id" in paymentLinks["response"] else "error"
         )
-
         if paymentLinkGenerationStatus == "success":
-
             for data in order_models_dict_array:
                 data["payment_id"] = paymentLinks["response"]["id"]
                 data["customer_id"] = customer_id
@@ -187,20 +243,10 @@ def order_create(customer_id, product_details):
                             "message": "Please enter your address",
                             "status": "error",
                         }
-
                     data["address"] = primary_status_items[0]
 
-                data["bank_details"] = []
-
-                data["status"] = 1
-                data["deleted_at"] = None
+                # Finalize Order Details
                 data["created_by"] = data["customer_id"]
-                data["updated_by"] = None
-                data["created_at"] = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
-                data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
-                data["updated_at"] = None
-
                 data["order_details"]["order_date"] = str(
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 )
@@ -210,17 +256,15 @@ def order_create(customer_id, product_details):
                 data["order_details"]["shipped_date"] = None
                 data["order_details"]["shipped_id"] = None
                 data["order_details"]["delivery_date"] = None
-
                 productQuntityArr = {
                     "_id": data["product_id"],
                     "total_quantity": data["order_details"]["total_quantity"],
                 }
-
                 productQuntityArrs.append(productQuntityArr)
                 orders.append(data)
 
+            # Insert Orders and Return Payment Link
             collection.insert_many(orders)
-
             return paymentLinks
         else:
             return {
@@ -247,7 +291,7 @@ def capture_created_order(cutomer_id, payment_id):
         for existing_order in results:
             shp_id = existing_order["order_tracking_id"]
             shp_rate_id = existing_order["order_details"]["shippingRateId"]
-
+            deliveryCharges = existing_order["order_details"]["deliveryCharges"]
             getway_name = existing_order["getway_name"]
 
         active_payment_details = paymentService.view_by_getway_name(getway_name)
@@ -272,20 +316,29 @@ def capture_created_order(cutomer_id, payment_id):
         # capture the payment end
 
         # buy shipment start
-        shippingDetails = shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id)
+        shippingDetails = shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id, deliveryCharges)
         if shippingDetails["status"] == "success":
-            status = 3
-        else:
-            status = 2
-        filter = {"payment_id": payment_id}
-        update = {
-            "$set": {
-                "status": status,
-                "paymentDetails": paymentDetails,
-                "shippingDetails": shippingDetails,
+
+            filter = {"payment_id": payment_id}
+            update = {
+                "$set": {
+                    "status": 3,
+                    "paymentDetails": paymentDetails,
+                    "shippingDetails": shippingDetails,
+                }
             }
-        }
-        collection.update_many(filter, update)
+            collection.update_many(filter, update)
+        else:
+            filter = {"payment_id": payment_id}
+            update = {
+                "$set": {
+                    "status": 2,
+                    "paymentDetails": paymentDetails,
+                    "shippingFailDetails": shippingDetails,
+                }
+            }
+            collection.update_many(filter, update)
+
         if shippingDetails["status"] == "error":
             return {
                 "message": "shipping failed! don't worry your money will be refunded",
@@ -787,7 +840,10 @@ def get_all_orders_by_user(request, user_id, page, show_page):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.state_code", "$address.state_code"]
+                        "$eq": [
+                            "$country_details.states.state_code",
+                            "$address.state_code",
+                        ]
                     }
                 }
             },
@@ -795,7 +851,10 @@ def get_all_orders_by_user(request, user_id, page, show_page):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.cities.name", "$address.city_name"]
+                        "$eq": [
+                            "$country_details.states.cities.name",
+                            "$address.city_name",
+                        ]
                     }
                 }
             },
@@ -823,6 +882,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
                     "product_id": {"$toString": "$product_id"},
                     "order_details": 1,
                     "payment_details": 1,
+                    "shippingDetails": 1,
                     "address": 1,
                     "bank_details": 1,
                     "order_tracking_id": 1,
@@ -831,7 +891,6 @@ def get_all_orders_by_user(request, user_id, page, show_page):
                     "product_details.name": 1,
                     "product_details.slug": 1,
                     "product_details.imageUrl100": 1,
-                    "shipping_details": 1,
                     "created_at": 1,
                 }
             },
@@ -1352,14 +1411,15 @@ def get_order_details_by_id(request, order_id):
 
 def check_order_tracking_status_and_update_deliver_or_not(request):
     try:
-        results = list(collection.find({"status": 3, "deleted_at": None}))
+        results = list(collection.find({"status": 5, "deleted_at": None}))
         for result in results:
-            trk_id = result["shipping_details"]["data"]["tracker"]["id"]
+            trk_id = result["shippingDetails"]["data"]["tracker"]["id"]
             trk_details = shippingService.track_order_by_id(trk_id)
+            print(trk_details)
             if trk_details["status"] == "success":
                 if trk_details["data"]["status"] == "delivered":
                     collection.update_one(
-                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 4}}
+                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 6}}
                     )
         return {"data": "success", "status": "success"}
     except Exception as e:
@@ -1372,17 +1432,90 @@ def check_order_tracking_status_and_update_user_wise_deliver_or_not(
     try:
         results = list(
             collection.find(
-                {"status": 3, "customer_id": customer_id, "deleted_at": None}
+                {"status": 5, "customer_id": customer_id, "deleted_at": None}
             )
         )
         for result in results:
-            trk_id = result["shipping_details"]["data"]["tracker"]["id"]
+            trk_id = result["shippingDetails"]["data"]["tracker"]["id"]
             trk_details = shippingService.track_order_by_id(trk_id)
             if trk_details["status"] == "success":
                 if trk_details["data"]["status"] == "delivered":
                     collection.update_one(
-                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 4}}
+                        {"_id": ObjectId(result["_id"])}, {"$set": {"status": 6}}
                     )
         return {"data": "success", "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def create_order_return_request(request, order_id):
+    try:
+        orderData = get_order_details_by_id(request, order_id)
+        if orderData["status"] == "success" and len(orderData["data"]) > 0:
+            shippingData = orderData["data"][0]["shippingDetails"]
+
+            if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
+                buyer_address = shippingData["data"]["buyer_address"]["id"]
+                from_address = shippingData["data"]["from_address"]["id"]
+                parcel_id = shippingData["data"]["parcel"]["id"]
+
+                payment_id = orderData["data"][0]["payment_id"]
+                reference_id = orderData["data"][0]["order_details"]["purchase_units"][
+                    "reference_id"
+                ]
+
+                active_payment_details = paymentService.view_by_getway_name(
+                    orderData["data"][0]["getway_name"]
+                )
+
+                if (
+                    active_payment_details["status"] == "success"
+                    and len(active_payment_details["data"]) > 0
+                ):
+                    client_id = active_payment_details["data"][0]["api_key"]
+                    secret_key = active_payment_details["data"][0]["password"]
+
+                payment_refund_details = paymentService.refund_paypal_payment(
+                    payment_id, reference_id, client_id, secret_key
+                )
+                if payment_refund_details["status"] == "error":
+                    return {
+                        "data": payment_refund_details["message"],
+                        "status": "error",
+                    }
+
+                shipment = shippingService.create_return_request(
+                    buyer_address, from_address, parcel_id
+                )
+
+                if shipment["status"] == "error":
+                    return {
+                        "data": shipment["message"],
+                        "status": "error",
+                    }
+
+                db["order"].update_one(
+                    {"_id": ObjectId(order_id)},
+                    {
+                        "$set": {
+                            # "status": 6,
+                            "status": 10,
+                            "return_request_details": shipment,
+                            "payment_refund_details": payment_refund_details,
+                            "updated_at": str(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ),
+                        }
+                    },
+                )
+                return {
+                    "data": "return request accepted successfully",
+                    "status": "success",
+                }
+
+            else:
+                return {"message": "Shipping details not found", "status": "error"}
+        else:
+            return {"message": "Order details not found", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}

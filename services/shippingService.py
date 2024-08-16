@@ -5,11 +5,234 @@ from services import orderService
 from db import db
 from bson import ObjectId
 from datetime import datetime
+from .common import paginate
 
 import services.paymentService as paymentService
 
 api_key = "2TDp15wsUbcC95Z42Y4BrQ"
 client = easypost.EasyPostClient(api_key)
+
+collection = db["shipping"]
+
+
+def create(data, id):
+    try:
+        data = dict(data)
+        if (
+            collection.count_documents({"api_key": data["api_key"], "deleted_at": None})
+            != 0
+        ):
+            return {"message": "API key already exist", "status": "error"}
+
+        data["id"] = (
+            int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
+            if collection.find_one({}, sort=[("id", -1)]) is not None
+            else 1
+        )
+        data["admin_id"] = id
+        result = collection.insert_one(data)
+        return {
+            "message": "data inserted successfully",
+            "_id": str(result.inserted_id),
+            "status": "success",
+        }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def view(request, page, show_page):
+    try:
+        pipeline = [
+            {"$match": {"deleted_at": None}},
+            {"$addFields": {"admin_id_obj": {"$toObjectId": "$admin_id"}}},
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "admin_id_obj",
+                    "foreignField": "_id",
+                    "as": "UserDetails",
+                }
+            },
+            {"$unwind": "$UserDetails"},
+            {
+                "$addFields": {
+                    "addressDetails": {
+                        "$filter": {
+                            "input": "$UserDetails.address",
+                            "as": "address",
+                            "cond": {"$eq": ["$$address.id", "$address_id"]},
+                        },
+                    },
+                    "user_name": "$UserDetails.name",
+                    "user_email": "$UserDetails.email",
+                    "user_mobile": "$UserDetails.mobile",
+                }
+            },
+            {"$unwind": "$addressDetails"},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "id": 1,
+                    "name": 1,
+                    "shipping_company_name": 1,
+                    "currency": 1,
+                    "amount_for_free_shipping": 1,
+                    "address_id": 1,
+                    "user_id": 1,
+                    "admin_id": 1,
+                    "password": 1,
+                    "api_key": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "addressDetails": 1,
+                    "user_name": 1,
+                    "user_email": 1,
+                    "user_mobile": 1,
+                }
+            },
+        ]
+
+        result = paginate(collection, pipeline, page, show_page)
+
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def view_by_id(id):
+    try:
+        result = list(collection.find({"_id": ObjectId(id), "deleted_at": None}))
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def view_by_status(status):
+    try:
+        pipeline = [
+            {"$match": {"status": status, "deleted_at": None}},
+            {"$addFields": {"admin_id_obj": {"$toObjectId": "$admin_id"}}},
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "admin_id_obj",
+                    "foreignField": "_id",
+                    "as": "UserDetails",
+                }
+            },
+            {"$unwind": "$UserDetails"},
+            {
+                "$addFields": {
+                    "addressDetails": {
+                        "$filter": {
+                            "input": "$UserDetails.address",
+                            "as": "address",
+                            "cond": {"$eq": ["$$address.id", "$address_id"]},
+                        },
+                    },
+                    "user_name": "$UserDetails.name",
+                    "user_email": "$UserDetails.email",
+                    "user_mobile": "$UserDetails.mobile",
+                }
+            },
+            {"$unwind": "$addressDetails"},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "id": 1,
+                    "name": 1,
+                    "shipping_company_name": 1,
+                    "currency": 1,
+                    "amount_for_free_shipping": 1,
+                    "address_id": 1,
+                    "user_id": 1,
+                    "admin_id": 1,
+                    "password": 1,
+                    "api_key": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "addressDetails": 1,
+                    "user_name": 1,
+                    "user_email": 1,
+                    "user_mobile": 1,
+                }
+            },
+        ]
+        result = collection.aggregate(pipeline)
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def view_by_getway_name(getway_name):
+    try:
+        result = list(
+            collection.find(
+                {"getway_name": getway_name, "status": 1, "deleted_at": None}
+            )
+        )
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def update(id, data):
+    try:
+        data = dict(data)
+        result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
+        if result.modified_count == 1:
+            return {"message": "data updated successfully", "status": "success"}
+        else:
+            return {"message": "failed to update", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def delete(payment_id: str):
+    result = collection.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
+    )
+    if result.modified_count == 1:
+        return {"message": "data deleted successfully", "status": "success"}
+    else:
+        return {"message": "failed to delete", "status": "error"}
+
+
+def change_status(payment_id: str):
+    getStatus = view_by_id(payment_id)["data"][0]["status"]
+
+    if getStatus == 0:
+        collection.update_many({}, {"$set": {"status": 0}})
+        status = 1
+    else:
+        status = 0
+
+    result = collection.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$set": {"status": status}},
+    )
+    if result.modified_count == 1:
+        return {"message": "status changed successfully", "status": "success"}
+    else:
+        return {"message": "failed to change status", "status": "error"}
+
+
+# ====================================================================================================
+# ====================================================================================================
+# ====================================================================================================
 
 
 def validate_address(street1, city, state, zip, country, email, phone):
@@ -33,8 +256,16 @@ def validate_address(street1, city, state, zip, country, email, phone):
 # def create_shipment_and_get_rates(name, street1, city_id, state_id, zip, country_id, email, phone):
 def create_shipment_and_get_rates(data):
     try:
-        # print(data)
+        AdminShipingDetails = view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            api_key = AdminShipingDetails["data"][0]["api_key"]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
 
+        client = easypost.EasyPostClient(api_key)
         userAddressDetails = ""
 
         for item in data["address"]:
@@ -42,33 +273,6 @@ def create_shipment_and_get_rates(data):
                 userAddressDetails = item
 
         if userAddressDetails != "":
-
-            # country_details = locationService.get_country_by_id(
-            #     userAddressDetails["country_id"]
-            # )["data"]
-            # state_details = locationService.get_states_by_state_id_and_country_id(
-            #     userAddressDetails["country_id"], userAddressDetails["state_id"]
-            # )["data"]
-            # city_details = locationService.get_city_by_city_id_country_id_and_state_id(
-            #     userAddressDetails["country_id"],
-            #     userAddressDetails["state_id"],
-            #     userAddressDetails["city_id"],
-            # )["data"]
-
-            # if country_details and len(country_details) > 0:
-            #     country = country_details[0]["iso2"]
-            # else:
-            #     return {"message": "Country not found", "status": "error"}
-
-            # if state_details and len(state_details) > 0:
-            #     state = state_details[0]["state_code"]
-            # else:
-            #     return {"message": "Country not found", "status": "error"}
-
-            # if city_details and len(city_details) > 0:
-            #     city = city_details[0]["name"]
-            # else:
-            #     return {"message": "Country not found", "status": "error"}
 
             shipment = client.shipment.create(
                 # carrier_accounts=["ca_c42e6d3b0c3c4964ae880ce2f0e62588"],
@@ -85,26 +289,32 @@ def create_shipment_and_get_rates(data):
                     "phone": userAddressDetails["phone_number"],  # "4153334444",
                     "email": data["email"],  # "dr_steve_brule@gmail.com",
                 },
-                # to_address={
-                #     "name": "Dr. Steve Brule",
-                #     "street1":"Bapuji Nagar Lane No 5 67",
-                #     "city": "Bhubaneswar",
-                #     "state": "OD",
-                #     "zip": "751009",
-                #     "country": "IN",
-                #     "phone": userAddressDetails["phone_number"],  # "4153334444",
-                #     "email": data["email"],  # "dr_steve_brule@gmail.com",
-                # },
                 from_address={
-                    "name": "EasyPost",
-                    "street1": "417 Montgomery Street",
-                    "street2": "5th Floor",
-                    "city": "San Francisco",
-                    "state": "CA",
-                    "zip": "94104",
-                    "country": "US",
-                    "phone": "4153334444",
-                    "email": "support@easypost.com",
+                    "name": AdminShipingDetails["data"][0]["name"],  # "EasyPost"
+                    "street1": AdminShipingDetails["data"][0]["addressDetails"][
+                        "roadName_area_colony"
+                    ],  # "417 Montgomery Street",
+                    "street2": AdminShipingDetails["data"][0]["addressDetails"][
+                        "house_bulding_name"
+                    ],  # "5th Floor",
+                    "city": AdminShipingDetails["data"][0]["addressDetails"][
+                        "city_name"
+                    ],  # "San Francisco",
+                    "state": AdminShipingDetails["data"][0]["addressDetails"][
+                        "state_code"
+                    ],  # "CA",
+                    "zip": AdminShipingDetails["data"][0]["addressDetails"][
+                        "pin_number"
+                    ],  # "94104",
+                    "country": AdminShipingDetails["data"][0]["addressDetails"][
+                        "country_code"
+                    ],  # "US",
+                    "phone": AdminShipingDetails["data"][0][
+                        "user_mobile"
+                    ],  # "4153334444",
+                    "email": AdminShipingDetails["data"][0][
+                        "user_email"
+                    ],  # "support@easypost.com",
                 },
                 parcel={
                     "length": 20.2,
@@ -124,19 +334,48 @@ def create_shipment_and_get_rates(data):
         return {"message": str(e), "status": "error"}
 
 
-def buy_shipment_for_deliver(shp_id: str, rates_index: int):
+def get_created_shipment_details(shp_id: str):
     try:
-        retrieved_shipment = client.shipment.retrieve(shp_id)
-        # print(retrieved_shipment)
-        # print(retrieved_shipment.lowest_rate())
-        # print(retrieved_shipment.rates[rates_index])
+        AdminShipingDetails = view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            api_key = AdminShipingDetails["data"][0]["api_key"]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
 
+        client = easypost.EasyPostClient(api_key)
+        retrieved_shipment = client.shipment.retrieve(shp_id)
+
+        return {"data": retrieved_shipment, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def buy_shipment_for_deliver(shp_id: str, rates_index: int, deliveryCharges: int):
+    try:
+        AdminShipingDetails = view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            api_key = AdminShipingDetails["data"][0]["api_key"]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
+
+        client = easypost.EasyPostClient(api_key)
+
+        retrieved_shipment = client.shipment.retrieve(shp_id)
+        if deliveryCharges == 0:
+            final_rate = retrieved_shipment.lowest_rate()
+        else:
+            final_rate = retrieved_shipment.rates[rates_index]
         shipment = client.shipment.buy(
             retrieved_shipment.id,
-            rate=retrieved_shipment.rates[rates_index],
+            rate=final_rate,
             # insurance=249.99,
         )
-
         return {"data": json.loads(json.dumps(shipment.to_dict())), "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
@@ -158,71 +397,29 @@ def track_order_by_id(trk_id):
         return {"message": str(e), "status": "error"}
 
 
-def create_return_request(request, order_id):
+def create_return_request(buyer_address, from_address, parcel_id):
     try:
-        orderData = orderService.get_order_details_by_id(request, order_id)
-        if orderData["status"] == "success" and len(orderData["data"]) > 0:
-            shippingData = orderData["data"][0]["shippingDetails"]
-
-            if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
-                buyer_address = shippingData["data"]["buyer_address"]["id"]
-                from_address = shippingData["data"]["from_address"]["id"]
-                parcel_id = shippingData["data"]["parcel"]["id"]
-
-                payment_id = orderData["data"][0]["payment_id"]
-                reference_id = orderData["data"][0]["order_details"]["purchase_units"][
-                    "reference_id"
-                ]
-
-                active_payment_details = paymentService.view_by_getway_name(orderData["data"][0]["getway_name"])
-
-                if (
-                    active_payment_details["status"] == "success"
-                    and len(active_payment_details["data"]) > 0
-                ):
-                    client_id = active_payment_details["data"][0]["api_key"]
-                    secret_key = active_payment_details["data"][0]["password"]
-
-                payment_refund_details = paymentService.refund_paypal_payment(
-                    payment_id, reference_id, client_id, secret_key
-                )
-                if payment_refund_details['status'] == "error":
-                    return {"data": payment_refund_details['message'], "status": "error"}
-
-                client = easypost.EasyPostClient("2TDp15wsUbcC95Z42Y4BrQ")
-
-                shipment = client.shipment.create(
-                    to_address={"id": buyer_address},
-                    from_address={"id": from_address},
-                    parcel={"id": parcel_id},
-                    is_return=True,
-                )
-
-                db["order"].update_one(
-                    {"_id": ObjectId(order_id)},
-                    {
-                        "$set": {
-                            # "status": 6,
-                            "status": 10,
-                            "return_request_details": json.loads(
-                                json.dumps(shipment.to_dict())
-                            ),
-                            "payment_refund_details": payment_refund_details,
-                            "updated_at": str(
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            ),
-                        }
-                    },
-                )
-                return {
-                    "data": "return request accepted successfully",
-                    "status": "success",
-                }
-
-            else:
-                return {"message": "Shipping details not found", "status": "error"}
+        AdminShipingDetails = view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            api_key = AdminShipingDetails["data"][0]["api_key"]
         else:
-            return {"message": "Order details not found", "status": "error"}
+            return {"message": "Shipping address not set", "status": "error"}
+
+        client = easypost.EasyPostClient(api_key)
+        shipment = client.shipment.create(
+            to_address={"id": buyer_address},
+            from_address={"id": from_address},
+            parcel={"id": parcel_id},
+            is_return=True,
+        )
+
+        return {
+            "message": json.loads(json.dumps(shipment.to_dict())),
+            "status": "success",
+        }
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
