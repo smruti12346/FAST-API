@@ -66,6 +66,7 @@ def create(product_data):
 def get_all(request):
     try:
         pipeline = [
+            {"$match": {"deleted_at": None}},
             {
                 "$lookup": {
                     "from": "category",
@@ -170,6 +171,7 @@ def get_all(request):
 def get_all_product(request, page, show_page):
     try:
         pipeline = [
+            {"$match": {"deleted_at": None}},
             {
                 "$lookup": {
                     "from": "category",
@@ -520,6 +522,10 @@ def get_product_count_by_category_id(category_id):
 def update(id, data):
     try:
         data = dict(data)
+        if data["images"] == None:
+            del data["images"]
+        if data["cover_image"] == None:
+            del data["cover_image"]
         result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
         if result.modified_count == 1:
             return {"message": "data updated successfully", "status": "success"}
@@ -584,8 +590,11 @@ def update_only_product_quantity(product_id, total_quantity):
 
 
 def delete_product(product_id: str):
-    result = collection.delete_one({"_id": ObjectId(product_id)})
-    if result.deleted_count == 1:
+    result = collection.update_one(
+        {"_id": ObjectId(product_id)},
+        {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
+    )
+    if result.modified_count == 1:
         return {"message": "data deleted successfully", "status": "success"}
     else:
         return {"message": "failed to delete", "status": "error"}

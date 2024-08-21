@@ -1,8 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Body, Request, Query, Depends
 import services.productService as productService
 from services.common import resize_image
-from Models.Products import ProductModel, VariantItem
-from typing import List
+from Models.Products import ProductModel, VariantItem, ProductUpdateModel
+from typing import List, Optional
 import os
 import uuid
 from os import getcwd
@@ -18,7 +18,7 @@ router = APIRouter()
 # ======================================================================================================
 # ======================================================================================================
 @router.post("/products/", tags=["PRODUCT MANAGEMENT"])
-async def generate_dummy_product(
+async def create_product(
     product_data: ProductModel = Body(...),
     cover_image: UploadFile = File(...),
     images: List[UploadFile] = File(...),
@@ -63,7 +63,6 @@ async def generate_dummy_product(
         # return {"message": product_data, "status": "success"}
         return productService.create(product_data)
     except Exception as e:
-        logging.error(f"Error occurred while creating product: {e}")
         return {"error": "An error occurred while creating product."}
 
 
@@ -78,8 +77,56 @@ def get_all_product(request: Request, page: int, show_page: int):
 
 
 @router.put("/products/{product_id}", tags=["PRODUCT MANAGEMENT"])
-def update_product(product_id: str, product_data: ProductModel):
-    return productService.update(product_id, product_data)
+async def update_product(
+    product_id: str,
+    product_data: ProductUpdateModel,
+    cover_image: Optional[UploadFile] = File(None),
+    images: Optional[List[UploadFile]] = File(None)
+):
+
+    try:
+        PATH_FILES = getcwd() + "/uploads/products/"
+        os.makedirs(PATH_FILES, exist_ok=True)
+
+        if cover_image :
+            cover_image_filename = (
+                f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
+            )
+            main_cover_image_filename = (
+                cover_image_filename + os.path.splitext(cover_image.filename)[1]
+            )
+
+            with open(PATH_FILES + main_cover_image_filename, "wb") as myfile:
+                content = await cover_image.read()
+                myfile.write(content)
+                myfile.close()
+            resize_image(cover_image_filename, main_cover_image_filename, PATH_FILES)
+            product_data.cover_image = cover_image_filename + ".webp"
+
+        if images :
+            additional_image_filenames = []
+            for image in images:
+                feature_image = f"{uuid.uuid1()}-{os.path.splitext(image.filename)[0]}"
+                main_feature_image = feature_image + os.path.splitext(image.filename)[1]
+
+                with open(PATH_FILES + main_feature_image, "wb") as myfile:
+                    content = await image.read()
+                    myfile.write(content)
+                    myfile.close()
+                    resize_image(feature_image, main_feature_image, PATH_FILES)
+                additional_image_filenames.append(feature_image + ".webp")
+
+            product_data.images = additional_image_filenames
+        
+
+        if product_data.seo is not None:
+            product_data.seo = json.loads(product_data.seo)
+        if product_data.variant is not None:
+            product_data.variant = json.loads(product_data.variant)
+
+        return productService.update(product_id, product_data)
+    except Exception as e:
+        return {"error": "An error occurred while creating product."}
 
 
 @router.delete("/products/{product_id}", tags=["PRODUCT MANAGEMENT"])
