@@ -7,6 +7,7 @@ from services.smtpService import send_email
 import services.shippingService as shippingService
 import services.productService as productService
 import services.paymentService as paymentService
+import services.taxService as taxService
 import uuid
 import time
 
@@ -96,26 +97,60 @@ def check_order_quantity_by_order(product_details):
         return {"message": str(e), "status": "error"}
 
 
+def get_nested_variant(data, varientArr):
+    current_variant = data
+    for i, index in enumerate(varientArr):
+        if i == 0:
+            current_variant = current_variant[index]
+        else:
+            current_variant = current_variant["undervarient"][index]
+    return current_variant
+
+
+def add_percentage(total_price, percentage):
+    # Calculate the amount to add
+    amount_to_add = total_price * (percentage / 100)
+    # Calculate the new total price with the added percentage
+    new_total_price = total_price + amount_to_add
+    return new_total_price
+
+
 def claculate_data(
-    product_id, total_quantity, deliveryCharges, discount_id, payment_id
+    product_id,
+    total_quantity,
+    varientArr,
+    deliveryCharges,
+    tax_percentage,
+    discount_id,
+    payment_id,
 ):
     product_detail = productService.get_product_by_id(Request, product_id)
     product_detail = (
         product_detail["data"][0] if product_detail["status"] == "success" else None
     )
-    total_price = float(float(product_detail["sale_price"]) * total_quantity) + float(
-        deliveryCharges
-    )
+    sale_price = float(product_detail["sale_price"])
+    if len(varientArr) > 0:
+        result = get_nested_variant(product_detail["variant"], varientArr)
+        sale_price = float(result["price"])
+
+    total_price = float(sale_price * total_quantity) + float(deliveryCharges)
+    total_price = round(add_percentage(total_price, tax_percentage), 2)
     return total_price
 
 
-def order_create(customer_id, product_details):
+def order_create(customer_id, country_code, product_details):
     from services.userService import get_address_by_id
 
     try:
         # Initialize variables
         orders, productQuntityArrs, paymetUnitsArr = [], [], []
-        total_price, purchase_units_total_price = 0, 0
+        (
+            total_price,
+            purchase_units_total_price,
+            fix_amount,
+            shipping_amount,
+            tax_percentage,
+        ) = (0, 0, 0, 0, 0)
         order_models_dict_array = [order.dict() for order in product_details]
         if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
@@ -139,17 +174,19 @@ def order_create(customer_id, product_details):
                 "status": "error",
             }
 
-        # Retrieve Shipping Details
-        AdminShipingDetails = shippingService.view_by_status(1)
+        AdminTaxDetails = taxService.viewTax()
+
         if (
-            AdminShipingDetails["status"] == "success"
-            and len(AdminShipingDetails["data"]) > 0
+            AdminTaxDetails["status"] == "success"
+            and AdminTaxDetails["data"]
+            and len(AdminTaxDetails["data"]) > 0
         ):
-            amount_for_free_shipping = AdminShipingDetails["data"][0][
-                "amount_for_free_shipping"
-            ]
-        else:
-            return {"message": "Shipping address not set", "status": "error"}
+            if AdminTaxDetails["data"][0]["country_code"] == country_code:
+                tax_percentage = AdminTaxDetails["data"][0]["national_tax_percentage"]
+            else:
+                tax_percentage = AdminTaxDetails["data"][0][
+                    "international_tax_percentage"
+                ]
 
         # Calculate Prices
         for product_detail in order_models_dict_array:
@@ -157,11 +194,42 @@ def order_create(customer_id, product_details):
                 claculate_data(
                     product_detail["product_id"],
                     product_detail["order_details"]["total_quantity"],
+                    product_detail["order_details"]["varientArr"],
                     0,
+                    tax_percentage,
                     product_detail["discount_id"],
                     product_detail["getway_name"],
                 )
             )
+
+        # Retrieve Shipping Details
+        AdminShipingDetails = shippingService.view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            if AdminShipingDetails["data"][0]["country_code"] == country_code:
+                fix_amount = AdminShipingDetails["data"][0]["national_fix_amount"]
+                if total_price > fix_amount:
+                    shipping_amount = AdminShipingDetails["data"][0][
+                        "charges_above_national_fix_amount"
+                    ]
+                else:
+                    shipping_amount = AdminShipingDetails["data"][0][
+                        "charges_bellow_national_fix_amount"
+                    ]
+            else:
+                fix_amount = AdminShipingDetails["data"][0]["international_fix_amount"]
+                if total_price > fix_amount:
+                    shipping_amount = AdminShipingDetails["data"][0][
+                        "charges_above_international_fix_amount"
+                    ]
+                else:
+                    shipping_amount = AdminShipingDetails["data"][0][
+                        "charges_bellow_international_fix_amount"
+                    ]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
 
         # Prepare Payment Units
         for product_detail in order_models_dict_array:
@@ -169,50 +237,34 @@ def order_create(customer_id, product_details):
                 claculate_data(
                     product_detail["product_id"],
                     product_detail["order_details"]["total_quantity"],
+                    product_detail["order_details"]["varientArr"],
                     0,
+                    tax_percentage,
                     product_detail["discount_id"],
                     product_detail["getway_name"],
                 )
             )
 
-            if total_price > amount_for_free_shipping:
-                purchase_units = {
-                    "reference_id": str(uuid.uuid1()),
-                    "amount": {"value": total_price, "currency_code": currency_code},
-                }
-                product_detail["order_details"]["deliveryCharges"] = 0
-                product_detail["order_details"][
-                    "total_price"
-                ] = purchase_units_total_price
-
-            else:
-                shippingRateDetails = shippingService.get_created_shipment_details(
-                    product_detail["order_tracking_id"]
-                )
-                shippingRates = float(
-                    shippingRateDetails["data"]["rates"][
-                        product_detail["order_details"]["shippingRateId"]
-                    ]["rate"]
-                )
-
-                purchase_units = {
-                    "reference_id": str(uuid.uuid1()),
-                    "amount": {
-                        "value": total_price
-                        + (shippingRates / len(order_models_dict_array)),
-                        "currency_code": currency_code,
-                    },
-                }
-                product_detail["order_details"]["deliveryCharges"] = (
-                    shippingRates / len(order_models_dict_array)
-                )
-                product_detail["order_details"]["total_price"] = (
-                    purchase_units_total_price
-                    + float(shippingRates / len(order_models_dict_array))
-                )
+            purchase_units = {
+                "reference_id": str(uuid.uuid1()),
+                "amount": {
+                    "value": total_price
+                    + (shipping_amount / len(order_models_dict_array)),
+                    "currency_code": currency_code,
+                },
+            }
+            product_detail["order_details"]["deliveryCharges"] = shipping_amount / len(
+                order_models_dict_array
+            )
+            product_detail["order_details"]["tax_percentage"] = tax_percentage
+            product_detail["order_details"]["total_price"] = (
+                purchase_units_total_price
+                + float(shipping_amount / len(order_models_dict_array))
+            )
 
             product_detail["order_details"]["purchase_units"] = purchase_units
             paymetUnitsArr.append(purchase_units)
+
 
         # Generate Payment Link
         paymentLinks = paymentService.create_paypal_order(
@@ -316,7 +368,9 @@ def capture_created_order(cutomer_id, payment_id):
         # capture the payment end
 
         # buy shipment start
-        shippingDetails = shippingService.buy_shipment_for_deliver(shp_id, shp_rate_id, deliveryCharges)
+        shippingDetails = shippingService.buy_shipment_for_deliver(
+            shp_id, shp_rate_id, deliveryCharges
+        )
         if shippingDetails["status"] == "success":
 
             filter = {"payment_id": payment_id}

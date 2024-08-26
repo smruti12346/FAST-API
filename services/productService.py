@@ -526,6 +526,8 @@ def update(id, data):
             del data["images"]
         if data["cover_image"] == None:
             del data["cover_image"]
+        
+        print(data)
         result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
         if result.modified_count == 1:
             return {"message": "data updated successfully", "status": "success"}

@@ -11,6 +11,7 @@ class ProductModel(BaseModel):
     slug: str
     cover_image: Optional[str] = None
     images: Optional[str] = None
+    short_description: Optional[str] = None
     description: str = None
     main_price: float
     sale_price: float
@@ -74,6 +75,7 @@ class ProductUpdateModel(BaseModel):
     slug: str
     cover_image: Optional[str] = None
     images: Optional[List[str]] = None
+    short_description: Optional[str] = None
     description: str = None
     main_price: float
     sale_price: float

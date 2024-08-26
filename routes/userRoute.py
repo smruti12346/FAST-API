@@ -30,7 +30,7 @@ def get_user_by_name(user_name: str):
 
 
 @router.get("/get-users-by-id/", tags=["USER MANAGEMENT"])
-def get_user_by_id(token: str = Depends(userService.get_current_user)):
+def get_user_by_token(token: str = Depends(userService.get_current_user)):
     if "_id" in token:
         return userService.get_user_by_id(str(token["_id"]))
     else:

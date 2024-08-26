@@ -10,7 +10,13 @@ class ShippingModel(BaseModel):
     password: str
     api_key: str
     currency: str
-    amount_for_free_shipping: float
+    country_code: str
+    national_fix_amount: float
+    international_fix_amount: float
+    charges_above_national_fix_amount: float
+    charges_bellow_national_fix_amount: float
+    charges_above_international_fix_amount: float
+    charges_bellow_international_fix_amount: float
     address_id: int
     status: Optional[int] = Field(default=0)
     deleted_at: Optional[str] = None
@@ -32,7 +38,13 @@ class ShippingUpdateModel(BaseModel):
     password: str
     api_key: str
     currency: str
-    amount_for_free_shipping: float
+    country_code: str
+    national_fix_amount: float
+    international_fix_amount: float
+    charges_above_national_fix_amount: float
+    charges_bellow_national_fix_amount: float
+    charges_above_international_fix_amount: float
+    charges_bellow_international_fix_amount: float
     address_id: int
     status: Optional[int] = Field(default=1)
     updated_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))

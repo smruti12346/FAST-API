@@ -66,9 +66,9 @@ async def create_product(
         return {"error": "An error occurred while creating product."}
 
 
-@router.get("/products/", tags=["PRODUCT MANAGEMENT"])
-def get_all(request: Request):
-    return productService.get_all(request)
+# @router.get("/products/", tags=["PRODUCT MANAGEMENT"])
+# def get_all(request: Request):
+#     return productService.get_all(request)
 
 
 @router.get("/all-products/{page}", tags=["PRODUCT MANAGEMENT"])

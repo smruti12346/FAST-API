@@ -70,13 +70,27 @@ def view(request, page, show_page):
             },
             {"$unwind": "$addressDetails"},
             {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "country_code",
+                    "foreignField": "iso2",
+                    "as": "addressDetailsForCurrencyAndCountryName",
+                }
+            },
+            {"$unwind": "$addressDetailsForCurrencyAndCountryName"},
+            {
                 "$project": {
                     "_id": {"$toString": "$_id"},
                     "id": 1,
                     "name": 1,
                     "shipping_company_name": 1,
                     "currency": 1,
-                    "amount_for_free_shipping": 1,
+                    "national_fix_amount": 1,
+                    "charges_above_national_fix_amount": 1,
+                    "charges_bellow_national_fix_amount": 1,
+                    "international_fix_amount": 1,
+                    "charges_above_international_fix_amount": 1,
+                    "charges_bellow_international_fix_amount": 1,
                     "address_id": 1,
                     "user_id": 1,
                     "admin_id": 1,
@@ -88,6 +102,9 @@ def view(request, page, show_page):
                     "user_name": 1,
                     "user_email": 1,
                     "user_mobile": 1,
+                    "country_code": 1,
+                    "addressDetailsForCurrencyAndCountryName.name": 1,
+                    "addressDetailsForCurrencyAndCountryName.iso2": 1,
                 }
             },
         ]
@@ -141,13 +158,28 @@ def view_by_status(status):
             },
             {"$unwind": "$addressDetails"},
             {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "country_code",
+                    "foreignField": "iso2",
+                    "as": "addressDetailsForCurrencyAndCountryName",
+                }
+            },
+            {"$unwind": "$addressDetailsForCurrencyAndCountryName"},
+            {
                 "$project": {
                     "_id": {"$toString": "$_id"},
                     "id": 1,
                     "name": 1,
                     "shipping_company_name": 1,
                     "currency": 1,
-                    "amount_for_free_shipping": 1,
+                    "country_code": 1,
+                    "national_fix_amount": 1,
+                    "charges_above_national_fix_amount": 1,
+                    "charges_bellow_national_fix_amount": 1,
+                    "international_fix_amount": 1,
+                    "charges_above_international_fix_amount": 1,
+                    "charges_bellow_international_fix_amount": 1,
                     "address_id": 1,
                     "user_id": 1,
                     "admin_id": 1,
@@ -159,6 +191,8 @@ def view_by_status(status):
                     "user_name": 1,
                     "user_email": 1,
                     "user_mobile": 1,
+                    "addressDetailsForCurrencyAndCountryName.name": 1,
+                    "addressDetailsForCurrencyAndCountryName.iso2": 1,
                 }
             },
         ]

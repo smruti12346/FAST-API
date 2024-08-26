@@ -6,6 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 import logging
 import services.shippingService as shippingService
+import services.taxService as taxService
 
 collection = db["cart"]
 
@@ -144,21 +145,70 @@ def get_cart_details_by_product_id_user_id(product_id: str, user_id: str):
 def get_cart_details_by_product_arr(request, items):
     try:
         data = []
+        national_fix_amount: 0
+        international_fix_amount: 0
+        charges_above_national_fix_amount: 0
+        charges_bellow_national_fix_amount: 0
+        charges_above_international_fix_amount: 0
+        charges_bellow_international_fix_amount: 0
+        national_tax_percentage: 0
+        international_tax_percentage: 0
+        country_code: None
+
         for item in items:
             product_data = get_product_by_id(request, item)
             if product_data["data"] and len(product_data["data"]) > 0:
                 data.append(product_data["data"][0])
-        
+
         AdminShipingDetails = shippingService.view_by_status(1)
-        amount_for_free_shipping = 5000
+
         if (
             AdminShipingDetails["status"] == "success"
+            and AdminShipingDetails["data"]
             and len(AdminShipingDetails["data"]) > 0
         ):
-            amount_for_free_shipping = AdminShipingDetails["data"][0][
-                "amount_for_free_shipping"
+            national_fix_amount = AdminShipingDetails["data"][0]["national_fix_amount"]
+            international_fix_amount = AdminShipingDetails["data"][0][
+                "international_fix_amount"
             ]
-        
-        return {"data": data, "amount_for_free_shipping": amount_for_free_shipping, "status": "success"}
+            charges_above_national_fix_amount = AdminShipingDetails["data"][0][
+                "charges_above_national_fix_amount"
+            ]
+            charges_bellow_national_fix_amount = AdminShipingDetails["data"][0][
+                "charges_bellow_national_fix_amount"
+            ]
+            charges_above_international_fix_amount = AdminShipingDetails["data"][0][
+                "charges_above_international_fix_amount"
+            ]
+            charges_bellow_international_fix_amount = AdminShipingDetails["data"][0][
+                "charges_bellow_international_fix_amount"
+            ]
+            country_code = AdminShipingDetails["data"][0]["country_code"]
+
+        AdminTaxDetails = taxService.viewTax()
+
+        if (
+            AdminTaxDetails["status"] == "success"
+            and AdminTaxDetails["data"]
+            and len(AdminTaxDetails["data"]) > 0
+        ):
+            national_tax_percentage = AdminTaxDetails["data"][0]["national_tax_percentage"]
+            international_tax_percentage = AdminTaxDetails["data"][0][
+                "international_tax_percentage"
+            ]
+
+        return {
+            "data": data,
+            "national_fix_amount": national_fix_amount,
+            "international_fix_amount": international_fix_amount,
+            "charges_above_national_fix_amount": charges_above_national_fix_amount,
+            "charges_bellow_national_fix_amount": charges_bellow_national_fix_amount,
+            "charges_above_international_fix_amount": charges_above_international_fix_amount,
+            "charges_bellow_international_fix_amount": charges_bellow_international_fix_amount,
+            "national_tax_percentage": national_tax_percentage,
+            "international_tax_percentage": international_tax_percentage,
+            "country_code": country_code,
+            "status": "success",
+        }
     except Exception as e:
         return {"message": str(e), "status": "error"}

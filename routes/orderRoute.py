@@ -56,7 +56,9 @@ def order_create(
     token: str = Depends(userService.get_current_user),
 ):
     if "_id" in token:
-        return orderService.order_create(str(token["_id"]), product_details)
+        primary_address = [entry for entry in token['address'] if entry['primary_status'] == 1]
+        country_code = primary_address[0]['country_code']
+        return orderService.order_create(str(token["_id"]), country_code, product_details)
     else:
         return {"data": "Not authenticated", "status": "error"}
 
