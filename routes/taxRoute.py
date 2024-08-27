@@ -14,7 +14,7 @@ def create(
     if "_id" in token:
         return taxService.create(tax_details, str(token["_id"]))
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.get("/view-tax-details/{page}", tags=["TAX DETAILS MANAGEMENT"])
@@ -31,7 +31,7 @@ def update(
     if "_id" in token:
         return taxService.update(tax_id, tax_details)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.delete("/tax-details/{tax_id}", tags=["TAX DETAILS MANAGEMENT"])
@@ -39,4 +39,4 @@ def delete(tax_id: str, token: str = Depends(userService.get_current_user)):
     if "_id" in token:
         return taxService.delete(tax_id)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}

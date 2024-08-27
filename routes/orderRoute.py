@@ -16,7 +16,7 @@ router = APIRouter()
 #     if "_id" in token:
 #         return cartService.add_to_cart(str(token["_id"]), product_id)
 #     else:
-#         return {"data": "Not authenticated", "status": "error"}
+#         return {"message": "Not authenticated", "status": "error"}
 
 
 # ======================================================================================================
@@ -34,7 +34,7 @@ def get_all_cart_details_by_user_id(
     if "_id" in token:
         return cartService.get_all_cart_details_by_user_id(request, str(token["_id"]))
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post("/check_order_quantity/", tags=["CART MANAGEMENT"])
@@ -60,7 +60,7 @@ def order_create(
         country_code = primary_address[0]['country_code']
         return orderService.order_create(str(token["_id"]), country_code, product_details)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post("/capture-created-order/", tags=["ORDER MANAGEMENT"])
@@ -74,7 +74,7 @@ def capture_created_order(payment_id: str):
 #     if "_id" in token:
 #         return orderService.capture_created_order(str(token["_id"]), payment_id)
 #     else:
-#         return {"data": "Not authenticated", "status": "error"}
+#         return {"message": "Not authenticated", "status": "error"}
 
 
 @router.get("/orders_by_user/{page}", tags=["ORDER MANAGEMENT"])
@@ -89,7 +89,7 @@ def get_all_orders_by_user(
             request, str(token["_id"]), page, show_page
         )
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.put("/update-order-status/{order_id}", tags=["ORDER MANAGEMENT"])
@@ -101,7 +101,7 @@ def update_order_status(
             order_id, status, str(token["_id"]), token["user_type"]
         )
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post(
@@ -123,7 +123,7 @@ def check_order_tracking_status_and_update_user_wise_deliver_or_not(
             request, str(token["_id"])
         )
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post("/create-order-return-request/", tags=["SHIPPING MANAGEMENT"])
@@ -133,7 +133,7 @@ def create_order_return_request(
     if "_id" in token:
         return orderService.create_order_return_request(request, order_id)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 # ======================================================================================================

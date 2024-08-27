@@ -1080,7 +1080,7 @@ def update_order_status(order_id, status, customer_id, user_type):
                 {"_id": ObjectId(order_id), "customer_id": customer_id}
             )
             if db_document == None:
-                return {"data": "Not authenticated", "status": "error"}
+                return {"message": "Not authenticated", "status": "error"}
 
         result = collection.update_one(
             {"_id": ObjectId(order_id)},

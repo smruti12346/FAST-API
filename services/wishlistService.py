@@ -20,7 +20,7 @@ def create(product_id, customer_id):
             )
             != 0
         ):
-            return {"message": "Product already exist", "status": "error"}
+            return {"message": "Product already exist in wish list", "status": "error"}
         data = {
             "product_id": product_id,
             "customer_id": customer_id,
@@ -74,6 +74,10 @@ def view(request, page, show_page, id):
                     },
                     "product_details.name": "$product_details.name",
                     "product_details.slug": "$product_details.slug",
+                    "product_details.sale_price": "$product_details.sale_price",
+                    "product_details.main_price": "$product_details.main_price",
+                    "product_details.quantity": "$product_details.quantity",
+                    "product_details.description": "$product_details.description",
                 }
             },
             {
@@ -86,6 +90,10 @@ def view(request, page, show_page, id):
                     "product_details.name": 1,
                     "product_details.slug": 1,
                     "product_details.imageUrl100": 1,
+                    "product_details.sale_price": 1,
+                    "product_details.main_price": 1,
+                    "product_details.quantity": 1,
+                    "product_details.description": 1,
                     "shipping_details": 1,
                     "created_at": 1,
                 }

@@ -14,7 +14,7 @@ def create(
     if "_id" in token:
         return shippingService.create(shipping_details, str(token["_id"]))
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.get(
@@ -43,7 +43,7 @@ def update(
     if "_id" in token:
         return shippingService.update(shipping_id, shipping_details)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.delete(
@@ -53,7 +53,7 @@ def delete(shipping_id: str, token: str = Depends(userService.get_current_user))
     if "_id" in token:
         return shippingService.delete(shipping_id)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post(
@@ -64,7 +64,7 @@ def change_status(shipping_id: str, token: str = Depends(userService.get_current
     if "_id" in token:
         return shippingService.change_status(shipping_id)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 # ======================================================================================================
@@ -82,7 +82,7 @@ def create_shipment_and_get_rates(token: str = Depends(userService.get_current_u
     if "_id" in token:
         return shippingService.create_shipment_and_get_rates(token)
     else:
-        return {"data": "Not authenticated", "status": "error"}
+        return {"message": "Not authenticated", "status": "error"}
 
 
 @router.post("/buy-shipment-for-deliver/", tags=["SHIPPING MANAGEMENT"])
