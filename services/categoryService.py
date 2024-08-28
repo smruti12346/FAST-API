@@ -301,58 +301,96 @@ def delete_category(category_id: str):
         return {"message": "failed to delete", "status": "error"}
 
 
-def get_all_sub_category(request):
+def build_category_hierarchy(collection, parent_id):
+    """
+    Recursively builds a nested dictionary representing the category hierarchy.
+
+    Args:
+    - collection: The MongoDB collection object to query.
+    - parent_id: The parent ID to search for subcategories.
+
+    Returns:
+    - A dictionary representing the category hierarchy.
+    """
+    hierarchy = {}
+
+    # Find immediate children with parent_id
+    direct_children = list(collection.find({"parent_id": parent_id}))
+
+    for child in direct_children:
+        child_id = child["id"]
+
+        # Check if the child has nested subcategories
+        nested_children = list(
+            collection.find({"parent_id_arr": {"$elemMatch": {"$eq": child_id}}})
+        )
+
+        if not nested_children:
+            hierarchy[child_id] = {}  # No further nested subcategories
+        else:
+            # Recursively build the hierarchy for nested subcategories
+            hierarchy[child_id] = build_category_hierarchy(collection, child_id)
+
+    return hierarchy
+
+
+def convert_to_json_format(category_dict):
+    result = []
+    for key, value in category_dict.items():
+        obj = {
+            "id": key,
+            "subcategories": (
+                convert_to_json_format(value) if value else []
+            ),  # Recursive call
+        }
+        result.append(obj)
+    return result
+
+
+def build_category_structure(category):
+    """
+    Recursively build the structure for categories and subcategories.
+
+    Args:
+        category (dict): A category dictionary with 'id' and 'subcategories'.
+
+    Returns:
+        dict: A dictionary with the category's information and its subcategories.
+    """
+    data = get_category_by_unique_id(category["id"])
+    category_obj = {"id": category["id"], "subcategory": []}
+
+    if data["data"] and len(data["data"]) > 0:
+        category_obj["name"] = data["data"][0]["name"]
+        category_obj["slug"] = data["data"][0]["slug"]
+
+    # Process subcategories recursively
+    for subcategory in category.get("subcategories", []):
+        subcategory_obj = build_category_structure(subcategory)
+        subcategory_obj["count"] = get_product_count_by_category_id(subcategory["id"])[
+            "count"
+        ]
+        category_obj["subcategory"].append(subcategory_obj)
+
+    return category_obj
+
+
+def get_all_sub_category(request, parent_id):
     try:
-        pipeline = [{"$match": {"deleted_at": None, "parent_id": 0}}]
+        pipeline = [{"$match": {"deleted_at": None, "parent_id": parent_id}}]
         results = list(collection.aggregate(pipeline))
-        mainArr = dict()
+
+        mainArr = {}
         for result in results:
-            documentOnes = list(collection.find({"parent_id": result["id"]}))
-            id = result["id"]
-            mainArr[id] = []
-            for documentOne in documentOnes:
-                idOne = documentOne["id"]
-                documentTwos = list(
-                    collection.find({"parent_id_arr": {"$elemMatch": {"$eq": idOne}}})
-                )
-                if len(documentTwos) == 0:
-                    mainArr[id].append(idOne)
-                mainArr[idOne] = []
-                for documentTwo in documentTwos:
-                    if (
-                        len(list(collection.find({"parent_id": documentTwo["id"]})))
-                        == 0
-                    ):
-                        idTwo = documentTwo["id"]
-                        mainArr[idOne].append(idTwo)
-        filteredMainArr = {k: v for k, v in mainArr.items() if v}
-        # print(filteredMainArr)
+            top_level_id = result["id"]
+            # Use the recursive function to find subcategories
+            mainArr[top_level_id] = build_category_hierarchy(collection, top_level_id)
 
-        mainArr = []
-        for docOne in filteredMainArr:
-            data = get_category_by_unique_id(docOne)
-            mainObj = dict()
-            if data["data"] and len(data["data"]) > 0:
-                mainObj["name"] = data["data"][0]["name"]
-                mainObj["slug"] = data["data"][0]["slug"]
-                mainObj["id"] = docOne
+        filteredMainArr = convert_to_json_format(
+            {k: v for k, v in mainArr.items() if v}
+        )
+        mainArr = [build_category_structure(category) for category in filteredMainArr]
 
-            mainObj["subcategory"] = []
-            for docTwo in filteredMainArr[docOne]:
-                # print(docTwo)
-                dataTwo = get_category_by_unique_id(docTwo)
-                mainObjTwo = dict()
-                if dataTwo["data"] and len(dataTwo["data"]) > 0:
-                    mainObjTwo["name"] = dataTwo["data"][0]["name"]
-                    mainObjTwo["slug"] = dataTwo["data"][0]["slug"]
-                    mainObjTwo["id"] = docTwo
-                    mainObjTwo["count"] = get_product_count_by_category_id(docTwo)[
-                        "count"
-                    ]
-                mainObj["subcategory"].append(mainObjTwo)
-            mainArr.append(mainObj)
-
-        # print(mainArr)
         return {"data": mainArr, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}

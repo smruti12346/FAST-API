@@ -48,9 +48,9 @@ def get_all_category(request: Request, page: int, show_page: int):
     return categoryService.get_all_category(request, page, show_page)
 
 
-@router.get("/sub-category/", tags=["CATEGORY MANAGEMENT"])
-def get_all_sub_category(request: Request):
-    return categoryService.get_all_sub_category(request)
+@router.get("/sub-category/{parent_id}", tags=["CATEGORY MANAGEMENT"])
+def get_all_sub_category(request: Request, parent_id: int):
+    return categoryService.get_all_sub_category(request, parent_id)
 
 
 @router.get("/category-wise-product/{page}", tags=["CATEGORY MANAGEMENT"])
