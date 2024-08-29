@@ -6,12 +6,14 @@ import json
 class OrderDetails(BaseModel):
     total_quantity: int
     varientArr: List[int]
+    product_total_price: float
     total_price: float
     discountInPercentage: int
     deliveryCharges: float
     shippingRateId: int
     discountedPrice: float
     discountAmount: float
+    taxAmount: Optional[float] = 0
     sale_price: float
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int

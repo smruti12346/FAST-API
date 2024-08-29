@@ -27,6 +27,11 @@ def add_to_cart(request: Request, items: List[str] = Body(...)):
     return cartService.get_cart_details_by_product_arr(request, items)
 
 
+@router.post("/get-shipping-and-tax-details/", tags=["CART MANAGEMENT"])
+def get_shipping_and_tax_details(request: Request):
+    return cartService.get_shipping_and_tax_details(request)
+
+
 @router.post("/get_all_cart_details_by_user_id/", tags=["CART MANAGEMENT"])
 def get_all_cart_details_by_user_id(
     request: Request, token: str = Depends(userService.get_current_user)
@@ -56,9 +61,13 @@ def order_create(
     token: str = Depends(userService.get_current_user),
 ):
     if "_id" in token:
-        primary_address = [entry for entry in token['address'] if entry['primary_status'] == 1]
-        country_code = primary_address[0]['country_code']
-        return orderService.order_create(str(token["_id"]), country_code, product_details)
+        primary_address = [
+            entry for entry in token["address"] if entry["primary_status"] == 1
+        ]
+        country_code = primary_address[0]["country_code"]
+        return orderService.order_create(
+            str(token["_id"]), country_code, product_details
+        )
     else:
         return {"message": "Not authenticated", "status": "error"}
 

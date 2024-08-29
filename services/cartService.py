@@ -145,6 +145,20 @@ def get_cart_details_by_product_id_user_id(product_id: str, user_id: str):
 def get_cart_details_by_product_arr(request, items):
     try:
         data = []
+        for item in items:
+            product_data = get_product_by_id(request, item)
+            if product_data["data"] and len(product_data["data"]) > 0:
+                data.append(product_data["data"][0])
+        return {
+            "data": data,
+            "status": "success",
+        }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_shipping_and_tax_details(request):
+    try:
         national_fix_amount: 0
         international_fix_amount: 0
         charges_above_national_fix_amount: 0
@@ -154,11 +168,6 @@ def get_cart_details_by_product_arr(request, items):
         national_tax_percentage: 0
         international_tax_percentage: 0
         country_code: None
-
-        for item in items:
-            product_data = get_product_by_id(request, item)
-            if product_data["data"] and len(product_data["data"]) > 0:
-                data.append(product_data["data"][0])
 
         AdminShipingDetails = shippingService.view_by_status(1)
 
@@ -192,13 +201,13 @@ def get_cart_details_by_product_arr(request, items):
             and AdminTaxDetails["data"]
             and len(AdminTaxDetails["data"]) > 0
         ):
-            national_tax_percentage = AdminTaxDetails["data"][0]["national_tax_percentage"]
+            national_tax_percentage = AdminTaxDetails["data"][0][
+                "national_tax_percentage"
+            ]
             international_tax_percentage = AdminTaxDetails["data"][0][
                 "international_tax_percentage"
             ]
-
         return {
-            "data": data,
             "national_fix_amount": national_fix_amount,
             "international_fix_amount": international_fix_amount,
             "charges_above_national_fix_amount": charges_above_national_fix_amount,

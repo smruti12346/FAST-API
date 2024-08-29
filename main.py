@@ -27,7 +27,7 @@ app.add_middleware(
         "http://localhost:3001",
         "https://ecomm-python-next.vercel.app",
         "https://python-next-ecommerce-frontend.vercel.app",
-        "https://zvu.shoppingxperts.com/",
+        "https://zvu.shoppingxperts.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
