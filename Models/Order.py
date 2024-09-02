@@ -8,7 +8,7 @@ class OrderDetails(BaseModel):
     varientArr: List[int]
     product_total_price: float
     total_price: float
-    discountInPercentage: int
+    discountInPercentage: float
     deliveryCharges: float
     shippingRateId: int
     discountedPrice: float

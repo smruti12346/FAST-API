@@ -8,6 +8,7 @@ import services.shippingService as shippingService
 import services.productService as productService
 import services.paymentService as paymentService
 import services.taxService as taxService
+import services.discountCouponService as discountCouponService
 import uuid
 import time
 
@@ -107,12 +108,22 @@ def get_nested_variant(data, varientArr):
     return current_variant
 
 
-def add_percentage(total_price, percentage):
+def get_percentage_value(total_price, percentage):
+    return total_price * (percentage / 100)
+
+
+def deduct_percentage(total_price, percentage):
     # Calculate the amount to add
     amount_to_add = total_price * (percentage / 100)
     # Calculate the new total price with the added percentage
-    new_total_price = total_price + amount_to_add
+    new_total_price = total_price - amount_to_add
     return new_total_price
+
+
+def is_date_greater_than_today(date_str):
+    given_date = datetime.strptime(date_str, "%d-%m-%Y")
+    today = datetime.now().date()
+    return given_date.date() > today
 
 
 def claculate_data(
@@ -122,8 +133,24 @@ def claculate_data(
     deliveryCharges,
     tax_percentage,
     discount_id,
+    customer_id,
     payment_id,
 ):
+    discount_in_percentage = 0
+    if discount_id != "":
+        response_data = discountCouponService.view_by_coupon_code_with_customer_id(discount_id, customer_id)
+
+        if (
+            response_data.get("status") == "success"
+            and len(response_data.get("data", [])) > 0
+        ):
+            if is_date_greater_than_today(response_data["data"][0]["validity"]):
+                discount_in_percentage = response_data["data"][0]["value_in_percentage"]
+            else:
+                discount_in_percentage = 0
+        else:
+            discount_in_percentage = 0
+
     product_detail = productService.get_product_by_id(Request, product_id)
     product_detail = (
         product_detail["data"][0] if product_detail["status"] == "success" else None
@@ -133,8 +160,11 @@ def claculate_data(
         result = get_nested_variant(product_detail["variant"], varientArr)
         sale_price = float(result["price"])
 
-    total_price = float(sale_price * total_quantity) + float(deliveryCharges)
-    total_price = round(add_percentage(total_price, tax_percentage), 2)
+    total_price_main = float(sale_price * total_quantity) + float(deliveryCharges)
+    total_price_tax_value = round(get_percentage_value(total_price_main, tax_percentage), 2)
+    total_price_discount_value = round(get_percentage_value(total_price_main, discount_in_percentage), 2)
+    total_price = round((total_price_main - total_price_discount_value) + total_price_tax_value, 2)
+
     return total_price
 
 
@@ -198,10 +228,12 @@ def order_create(customer_id, country_code, product_details):
                     0,
                     tax_percentage,
                     product_detail["discount_id"],
+                    customer_id,
                     product_detail["getway_name"],
                 )
             )
 
+        # print(total_price)
         # Retrieve Shipping Details
         AdminShipingDetails = shippingService.view_by_status(1)
         if (
@@ -241,6 +273,7 @@ def order_create(customer_id, country_code, product_details):
                     0,
                     tax_percentage,
                     product_detail["discount_id"],
+                    customer_id,
                     product_detail["getway_name"],
                 )
             )
@@ -264,7 +297,6 @@ def order_create(customer_id, country_code, product_details):
 
             product_detail["order_details"]["purchase_units"] = purchase_units
             paymetUnitsArr.append(purchase_units)
-
 
         # Generate Payment Link
         paymentLinks = paymentService.create_paypal_order(

@@ -526,7 +526,7 @@ def update(id, data):
             del data["images"]
         if data["cover_image"] == None:
             del data["cover_image"]
-        
+
         print(data)
         result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
         if result.modified_count == 1:
@@ -718,7 +718,7 @@ def get_product_wise_review(product_id):
         return {"message": str(e), "status": "error"}
 
 
-def get_product_review(product_id):
+def get_product_review(request, product_id):
     try:
 
         pipeline = [
@@ -733,6 +733,24 @@ def get_product_review(product_id):
                 }
             },
             {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/review/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/review/300/",
+                            "$image",
+                        ]
+                    },
+                }
+            },
+            {
                 "$project": {
                     "_id": {"$toString": "$_id"},
                     "customer_id": 1,
@@ -740,11 +758,14 @@ def get_product_review(product_id):
                     "point": 1,
                     "review": 1,
                     "image": 1,
+                    "imageUrl": 1,
+                    "imageUrl300": 1,
                     "status": 1,
                     "order_tracking_id": 1,
                     "status": 1,
                     "customer_details.name": 1,
                     "customer_details.email": 1,
+                    "created_at": 1,
                 }
             },
         ]
