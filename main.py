@@ -28,6 +28,7 @@ app.add_middleware(
         "https://ecomm-python-next.vercel.app",
         "https://python-next-ecommerce-frontend.vercel.app",
         "https://zvu.shoppingxperts.com",
+        "https://riverranch-api.shoppingxperts.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],

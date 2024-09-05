@@ -180,5 +180,10 @@ def get_all_orders_count_status_wise():
 
 
 @router.post("/get-order-invoice/", tags=["ORDER REPORTS"])
-def get_order_invoice(data: InvoiceModel, background_tasks: BackgroundTasks):
-    return orderService.get_order_invoice(data, background_tasks)
+def get_order_invoice(request: Request, data: InvoiceModel, background_tasks: BackgroundTasks):
+    return orderService.get_order_invoice(request, data, background_tasks)
+
+
+@router.get("/get-order-details-by-order-id/{order_id}", tags=["ORDER REPORTS"])
+def get_order_details_by_order_id(request: Request, order_id:str):
+    return orderService.get_order_details_by_order_id(request, order_id)

@@ -13,7 +13,7 @@ class UserModel(BaseModel):
     profile_image : Optional[str] = None
     address : Optional[List[str]] = []
     bank_details : Optional[List[str]] = []
-    user_type : Optional[int] = Field(default=1)
+    user_type : Optional[int] = Field(default=2)
     user_permission : Optional[List[str]] = None
     description: Optional[str] = None
     status: Optional[int] = Field(default=1)

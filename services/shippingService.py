@@ -468,3 +468,24 @@ def check_return_status(request, shipping_id):
 
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+def get_shipping_label(shipping_id):
+    try:
+        result = {}
+        shipment = client.shipment.label(shipping_id, file_format="PDF")
+        shipping_details = json.loads(json.dumps(shipment.to_dict()))
+        result['postage_label_url'] = shipping_details['postage_label']['label_url']
+        result['billing_type'] = shipping_details['selected_rate']['billing_type']
+        result['carrier'] = shipping_details['selected_rate']['carrier']
+        result['carrier_account_id'] = shipping_details['selected_rate']['carrier_account_id']
+        result['currency'] = shipping_details['selected_rate']['retail_currency']
+        result['retail_rate'] = shipping_details['selected_rate']['retail_rate']
+        result['tracking_url'] = shipping_details['tracker']['public_url']
+
+        return {
+            "data": result,
+            "status": "success",
+        }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}

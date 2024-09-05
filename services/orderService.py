@@ -988,7 +988,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
         return {"message": str(e), "status": "error"}
 
 
-def get_all_orders_by_order_id(order_id):
+def get_order_details_by_order_id(request, order_id):
     try:
         pipeline = [
             {"$match": {"_id": ObjectId(order_id)}},
@@ -1013,8 +1013,8 @@ def get_all_orders_by_order_id(order_id):
             {
                 "$lookup": {
                     "from": "location",
-                    "localField": "address.country_id",
-                    "foreignField": "id",
+                    "localField": "address.country_code",
+                    "foreignField": "iso2",
                     "as": "country_details",
                 }
             },
@@ -1023,7 +1023,7 @@ def get_all_orders_by_order_id(order_id):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.id", "$address.state_id"]
+                        "$eq": ["$country_details.states.state_code", "$address.state_code"]
                     }
                 }
             },
@@ -1031,7 +1031,7 @@ def get_all_orders_by_order_id(order_id):
             {
                 "$match": {
                     "$expr": {
-                        "$eq": ["$country_details.states.cities.id", "$address.city_id"]
+                        "$eq": ["$country_details.states.cities.name", "$address.city_name"]
                     }
                 }
             },
@@ -1048,11 +1048,21 @@ def get_all_orders_by_order_id(order_id):
                     "address.city_name": "$country_details.states.cities.name",
                     "user_details.email": "$user_details.email",
                     "user_details.name": "$user_details.name",
+                    "user_details.mobile": "$user_details.mobile",
+                    "user_details.profile_image": "$user_details.profile_image",
+                    "product_details.imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$product_details.cover_image",
+                        ]
+                    },
                 }
             },
             {
                 "$project": {
                     "_id": {"$toString": "$_id"},
+                    "discount_id": 1,
                     "customer_id": 1,
                     "product_id": {"$toString": "$product_id"},
                     "order_details": 1,
@@ -1065,16 +1075,27 @@ def get_all_orders_by_order_id(order_id):
                     "product_details.name": 1,
                     "product_details.slug": 1,
                     "product_details.main_price": 1,
+                    "product_details.sale_price": 1,
                     "product_details.description": 1,
+                    "product_details.imageUrl": 1,
                     "user_details.email": 1,
                     "user_details.name": 1,
+                    "user_details.mobile": 1,
+                    "user_details.profile_image": 1,
+                    "payment_id": 1,
+                    "getway_name": 1,
                     "created_at": 1,
                 }
             },
         ]
         result = list(collection.aggregate(pipeline))
+        if len(result) > 0 :
+            shipping_details = shippingService.get_shipping_label(result[0]['order_tracking_id'])
+            if shipping_details['status'] != 'error':
+                result[0]['shipping_details'] = shipping_details['data']
+            else :
+                result[0]['shipping_details'] = {}
 
-        # print(result)
         return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
@@ -1265,16 +1286,15 @@ def get_all_orders_count_status_wise():
         return {"message": str(e), "status": "error"}
 
 
-def get_order_invoice(data, background_tasks):
+def get_order_invoice(request, data, background_tasks):
     try:
         data = dict(data)
-        results = get_all_orders_by_order_id(data["order_id"])
+        results = get_order_details_by_order_id(request, data["order_id"])
 
         if results["status"] == "success" and results["data"][0]:
             result = results["data"][0]
             if (
-                result["status"] == 3
-                or result["status"] == 4
+                result["status"] == 4
                 or result["status"] == 5
                 or result["status"] == 6
             ):

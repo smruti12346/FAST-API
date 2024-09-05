@@ -103,3 +103,7 @@ def track_order_by_id(trk_id: str):
 @router.post("/check-return-status/", tags=["SHIPPING MANAGEMENT"])
 def check_return_status(request: Request, shipping_id: str):
     return shippingService.check_return_status(request, shipping_id)
+
+@router.get("/create-shipping-label/", tags=["SHIPPING MANAGEMENT"])
+def create_shipping_label():
+    return shippingService.create_shipping_label()
