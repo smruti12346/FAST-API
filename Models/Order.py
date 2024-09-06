@@ -13,7 +13,9 @@ class OrderDetails(BaseModel):
     shippingRateId: int
     discountedPrice: float
     discountAmount: float
+    tax_percentage: Optional[float] = 0
     taxAmount: Optional[float] = 0
+    purchase_units: Optional[dict] = 0
     sale_price: float
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int
@@ -46,9 +48,11 @@ class OrderModel(BaseModel):
     order_details: OrderDetails
     discount_id: Optional[str] = None
     getway_name: str
-    # payment_details: PaymentDetails
+    payment_status: Optional[int] = 0
+    paymentDetails: Optional[dict] = None
+    payment_id: Optional[str] = None
     product_id: str
-    order_tracking_id: str
+    order_tracking_id: Optional[str] = None
 
     bank_details: Optional[List] = []
     status: Optional[int] = Field(default=1)

@@ -327,11 +327,14 @@ def update_address(id, email, data):
 
             if len(mainArr) > 0:
                 address_list = mainArr.get("address", [])
-                data["id"] = (
-                    int(address_list[-1]["id"]) + 1
-                    if address_list and "id" in address_list[-1]
-                    else 1
-                )
+
+                # Set the id and status based on the presence of the address list and "id"
+                if address_list and "id" in address_list[-1]:
+                    data["id"] = int(address_list[-1]["id"]) + 1
+                    data["primary_status"] = 0  # status = 0 if "id" exists in the last item
+                else:
+                    data["id"] = 1
+                    data["primary_status"] = 1  # status = 1 otherwise
             # print(data)
             result = collection.update_one(
                 {"_id": ObjectId(id)}, {"$push": {"address": data}}
@@ -348,24 +351,40 @@ def update_address(id, email, data):
         return {"message": str(e), "status": "error"}
 
 
+# def delete_address(user_id: str, user_address_id: int):
+#     user = collection.find_one(
+#         {"_id": ObjectId(user_id), "address.id": user_address_id}, {"address.$": 1}
+#     )
+#     if len(user) > 0:
+#         query = {"_id": ObjectId(user_id), "address.id": user_address_id}
+#         update = {
+#             "$set": {
+#                 "address.$.deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#             }
+#         }
+#         result = collection.update_one(query, update)
+#         if result.modified_count == 1:
+#             return {"message": "deleted successfully", "status": "success"}
+#         else:
+#             return {"message": "failed to delete", "status": "error"}
+#     else:
+#         return {"message": "user address not found", "status": "error"}
+
+
 def delete_address(user_id: str, user_address_id: int):
     user = collection.find_one(
         {"_id": ObjectId(user_id), "address.id": user_address_id}, {"address.$": 1}
     )
-    if len(user) > 0:
-        query = {"_id": ObjectId(user_id), "address.id": user_address_id}
-        update = {
-            "$set": {
-                "address.$.deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-        }
+    if user:
+        query = {"_id": ObjectId(user_id)}
+        update = {"$pull": {"address": {"id": user_address_id}}}
         result = collection.update_one(query, update)
         if result.modified_count == 1:
-            return {"message": "deleted successfully", "status": "success"}
+            return {"message": "Address deleted successfully", "status": "success"}
         else:
-            return {"message": "failed to delete", "status": "error"}
+            return {"message": "Failed to delete the address", "status": "error"}
     else:
-        return {"message": "user address not found", "status": "error"}
+        return {"message": "User address not found", "status": "error"}
 
 
 def change_addresss_status(user_id: str, user_address_id: int):

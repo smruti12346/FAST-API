@@ -66,15 +66,15 @@ def order_create(
         ]
         country_code = primary_address[0]["country_code"]
         return orderService.order_create(
-            str(token["_id"]), country_code, product_details
+            token, country_code, product_details
         )
     else:
         return {"message": "Not authenticated", "status": "error"}
 
 
-@router.post("/capture-created-order/", tags=["ORDER MANAGEMENT"])
-def capture_created_order(payment_id: str):
-    return orderService.capture_created_order("hi", payment_id)
+# @router.post("/capture-created-order/", tags=["ORDER MANAGEMENT"])
+# def capture_created_order(payment_id: str):
+#     return orderService.capture_created_order("hi", payment_id)
 
 
 # def capture_created_order(

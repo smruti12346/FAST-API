@@ -18,6 +18,11 @@ def view(request: Request, page: int, show_page: int):
 def view_by_status(status: int):
     return paymentService.view_by_status(status)
 
+
+@router.get("/view-by-getway-name/{getwayname}" , tags=['PAYMENT CREDENTIAL DETAILS MANAGEMENT'])
+def view_by_getway_name(getwayname: str):
+    return paymentService.view_by_getway_name(getwayname)
+
 @router.put("/payment-details/{payment_id}" , tags=['PAYMENT CREDENTIAL DETAILS MANAGEMENT'])
 def update(payment_id: str, payment_details: PaymentModel = Body(...)):
     return paymentService.update(payment_id, payment_details)

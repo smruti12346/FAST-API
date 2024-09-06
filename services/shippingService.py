@@ -401,10 +401,12 @@ def buy_shipment_for_deliver(shp_id: str, rates_index: int, deliveryCharges: int
         client = easypost.EasyPostClient(api_key)
 
         retrieved_shipment = client.shipment.retrieve(shp_id)
-        if deliveryCharges == 0:
-            final_rate = retrieved_shipment.lowest_rate()
-        else:
-            final_rate = retrieved_shipment.rates[rates_index]
+        # if deliveryCharges == 0:
+        #     final_rate = retrieved_shipment.lowest_rate()
+        # else:
+        #     final_rate = retrieved_shipment.rates[rates_index]
+
+        final_rate = retrieved_shipment.lowest_rate()
         shipment = client.shipment.buy(
             retrieved_shipment.id,
             rate=final_rate,
@@ -489,3 +491,13 @@ def get_shipping_label(shipping_id):
         }
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+
+def create_and_buy_shipment(data):
+    created_shipment = create_shipment_and_get_rates(data)
+
+    if created_shipment['status'] == "success":
+        return buy_shipment_for_deliver(created_shipment['data']['id'], 0, 0)
+    else:
+        return {"message": "unable to create shipment", "status": "error"}
