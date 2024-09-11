@@ -34,7 +34,7 @@ def get_user_by_token(token: str = Depends(userService.get_current_user)):
     if "_id" in token:
         return userService.get_user_by_id(str(token["_id"]))
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.get("/get-users-by-id/{user_id}", tags=["USER MANAGEMENT"])
@@ -91,7 +91,7 @@ def login_user_details(token: str = Depends(userService.get_current_user)):
     if "_id" in token:
         return {"data": convert_oid_to_str([token]), "status": "success"}
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 # ======================================================================================================
@@ -113,7 +113,7 @@ def update_address(
     if "_id" in token:
         return userService.update_address(str(token["_id"]), str(token["email"]), data)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.delete(
@@ -128,7 +128,7 @@ def delete_address(address_id: int, token: str = Depends(userService.get_current
     if "_id" in token:
         return userService.delete_address(str(token["_id"]), address_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 # @router.post("/users/change-address-status/{user_id}/{address_id}", tags=['USER ADDRESS MANAGEMENT'])
@@ -143,7 +143,7 @@ def change_addresss_status(
     if "_id" in token:
         return userService.change_addresss_status(str(token["_id"]), address_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 # ADDRESS SECTION END

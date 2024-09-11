@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request, Body
 import services.shippingService as shippingService
 import services.userService as userService
 from Models.Shipping import ShippingModel, ShippingUpdateModel
+from typing import Optional
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def create(
     if "_id" in token:
         return shippingService.create(shipping_details, str(token["_id"]))
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.get(
@@ -43,7 +44,7 @@ def update(
     if "_id" in token:
         return shippingService.update(shipping_id, shipping_details)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.delete(
@@ -53,7 +54,7 @@ def delete(shipping_id: str, token: str = Depends(userService.get_current_user))
     if "_id" in token:
         return shippingService.delete(shipping_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post(
@@ -64,7 +65,7 @@ def change_status(shipping_id: str, token: str = Depends(userService.get_current
     if "_id" in token:
         return shippingService.change_status(shipping_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 # ======================================================================================================
@@ -73,8 +74,18 @@ def change_status(shipping_id: str, token: str = Depends(userService.get_current
 
 
 @router.post("/validate-address/", tags=["SHIPPING MANAGEMENT"])
-def validate_address():
-    return shippingService.validate_address()
+def validate_address(
+    street1: Optional[str] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    zip: Optional[str] = None,
+    country: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+):
+    return shippingService.validate_address(
+        street1, city, state, zip, country, email, phone
+    )
 
 
 @router.post("/create-shipment-and-get-rates/", tags=["SHIPPING MANAGEMENT"])
@@ -82,7 +93,7 @@ def create_shipment_and_get_rates(token: str = Depends(userService.get_current_u
     if "_id" in token:
         return shippingService.create_shipment_and_get_rates(token)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post("/buy-shipment-for-deliver/", tags=["SHIPPING MANAGEMENT"])
@@ -104,6 +115,12 @@ def track_order_by_id(trk_id: str):
 def check_return_status(request: Request, shipping_id: str):
     return shippingService.check_return_status(request, shipping_id)
 
+
 @router.get("/create-shipping-label/", tags=["SHIPPING MANAGEMENT"])
 def create_shipping_label():
     return shippingService.create_shipping_label()
+
+
+@router.get("/get-address-using-zip-code/{zip_code}", tags=["SHIPPING MANAGEMENT"])
+def get_address_using_zip_code(zip_code: int):
+    return shippingService.get_address_using_zip_code(zip_code)

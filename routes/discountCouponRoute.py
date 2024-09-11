@@ -14,7 +14,7 @@ def create(
     if "_id" in token:
         return discountCouponService.create(discount_details)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.get(
@@ -47,7 +47,7 @@ def view_by_coupon_code_with_customer_id(coupon_code: str, token: str = Depends(
     if "_id" in token:
         return discountCouponService.view_by_coupon_code_with_customer_id(coupon_code,  str(token["_id"]))
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.put(
@@ -61,7 +61,7 @@ def update(
     if "_id" in token:
         return discountCouponService.update(discount_id, discount_details)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.delete(
@@ -71,7 +71,7 @@ def delete(discount_id: str, token: str = Depends(userService.get_current_user))
     if "_id" in token:
         return discountCouponService.delete(discount_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post(
@@ -82,4 +82,4 @@ def change_status(discount_id: str, token: str = Depends(userService.get_current
     if "_id" in token:
         return discountCouponService.change_status(discount_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}

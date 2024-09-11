@@ -184,7 +184,7 @@ async def create_review(
             product_id, point, review, review_image, token
         )
     else:
-        return await {"message": "Not authenticated", "status": "error"}
+        return await {"message": "Please Login First", "status": "error"}
 
 
 @router.get("/get-product-wise-review/{product_id}", tags=["PRODUCT REVIEW MANAGEMENT"])

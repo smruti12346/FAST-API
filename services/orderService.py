@@ -9,6 +9,7 @@ import services.productService as productService
 import services.paymentService as paymentService
 import services.taxService as taxService
 import services.discountCouponService as discountCouponService
+import services.userService as userService
 import uuid
 import time
 
@@ -63,7 +64,7 @@ def check_order_quantity(product_id, varientArr):
             db["product"].find({"_id": ObjectId(product_id), "deleted_at": None})
         )
         updated_product = update_variant_quantity(result[0], varientArr, 2, "N/A")
-        print(updated_product)
+        # print(updated_product)
         # return updated_product
     except Exception as e:
         return {"message": str(e), "status": "error"}
@@ -536,8 +537,6 @@ def order_create(customer_details, country_code, product_details):
                     "message": "Please enter your address",
                     "status": "error",
                 }
-            
-
 
         for data in order_models_dict_array:
             data["address"] = primary_status_items[0]
@@ -555,7 +554,176 @@ def order_create(customer_details, country_code, product_details):
         payment_id = order_models_dict_array[0]["payment_id"]
 
         # buy shipment start
-        shippingDetails = shippingService.create_and_buy_shipment(customer_details)
+        shippingDetails = shippingService.create_and_buy_shipment(customer_details, None)
+        if shippingDetails["status"] == "success":
+            shipping_id = shippingDetails["data"]["id"]
+            filter = {"payment_id": payment_id}
+            update = {
+                "$set": {
+                    "status": 3,
+                    "shippingDetails": shippingDetails,
+                    "order_tracking_id": shipping_id,
+                }
+            }
+            collection.update_many(filter, update)
+        else:
+            shipping_id = shippingDetails["data"]["id"]
+            filter = {"payment_id": payment_id}
+            update = {
+                "$set": {
+                    "status": 2,
+                    "shippingFailDetails": shippingDetails,
+                    "order_tracking_id": shipping_id,
+                }
+            }
+            collection.update_many(filter, update)
+
+        if shippingDetails["status"] == "error":
+            return {
+                "message": "shipping failed! don't worry your money will be refunded",
+                "payment_id": payment_id,
+                "status": "error",
+            }
+        # buy shipment end
+
+        # check quantity start
+        for existing_order_data in order_models_dict_array:
+            result = list(
+                db["product"].find(
+                    {
+                        "_id": ObjectId(existing_order_data["product_id"]),
+                        "deleted_at": None,
+                    }
+                )
+            )
+            updated_product = update_variant_quantity(
+                result[0],
+                existing_order_data["order_details"]["varientArr"],
+                existing_order_data["order_details"]["total_quantity"],
+                payment_id,
+            )
+
+            if updated_product["status"] == "error":
+                return updated_product
+        # check quantity end
+
+        # # update quantity and varient after check quantity start
+        # for existing_order_data in order_models_dict_array:
+        #     result = list(
+        #         db["product"].find(
+        #             {
+        #                 "_id": ObjectId(existing_order_data["product_id"]),
+        #                 "deleted_at": None,
+        #             }
+        #         )
+        #     )
+        #     updated_product = update_variant_quantity(
+        #         result[0],
+        #         existing_order_data["order_details"]["varientArr"],
+        #         existing_order_data["order_details"]["total_quantity"],
+        #         payment_id,
+        #     )
+        #     db["product"].update_one(
+        #         {"_id": ObjectId(existing_order_data["product_id"])},
+        #         {
+        #             "$set": {
+        #                 "quantity": int(updated_product["data"]["quantity"]),
+        #                 "variant": updated_product["data"]["variant"],
+        #             },
+        #             "$inc": {
+        #                 "sold_quantity": +existing_order_data["order_details"][
+        #                     "total_quantity"
+        #                 ]
+        #             },
+        #         },
+        #     )
+        # # update quantity and varient after check quantity end
+
+        filter = {"payment_id": payment_id}
+        update = {
+            "$set": {
+                "status": 5,
+            }
+        }
+        collection.update_many(filter, update)
+        return {
+            "message": "Order placed successfully",
+            "payment_id": payment_id,
+            "status": "success",
+        }
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def guest_order_create(product_details):
+    from services.userService import get_address_by_id
+    from passlib.context import CryptContext
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    try:
+        orders = []
+        order_models_dict_array = [order.dict() for order in product_details]
+        if len(order_models_dict_array) == 0:
+            return {"message": "please choose product", "status": "error"}
+
+        user_details = userService.check_email_exist(
+            order_models_dict_array[0]["address"]["email"]
+        )
+
+        address = order_models_dict_array[0]["address"]
+        address["primary_status"] = 1
+        address["status"] = 1
+        address["deleted_at"] = None
+        address["id"] = 1
+
+        if user_details is None:
+            user_data = {
+                "email": order_models_dict_array[0]["address"]["email"],
+                "name": order_models_dict_array[0]["address"]["full_name"],
+                "mobile": order_models_dict_array[0]["address"]["phone_number"],
+                "password": pwd_context.hash("user@123"),
+                "dob": None,
+                "gender": None,
+                "profile_image": None,
+                "address": [address],
+                "bank_details": [],
+                "user_type": 2,
+                "user_permission": None,
+                "description": None,
+                "status": 1,
+                "deleted_at": None,
+                "created_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "created_date": str(datetime.now().strftime("%Y-%m-%d")),
+                "created_time": str(datetime.now().strftime("%H:%M:%S")),
+                "created_by": None,
+                "updated_at": None,
+                "updated_by": None,
+            }
+
+            result = db["user"].insert_one(user_data)
+            inserted_id = str(result.inserted_id)
+        else:
+            inserted_id = str(user_details["_id"])
+
+        for data in order_models_dict_array:
+            data["status"] = 1
+            data["created_by"] = inserted_id
+            data["customer_id"] = inserted_id
+            data["order_details"]["order_date"] = str(
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+            orders.append(data)
+        # print(orders)
+
+        # Insert Orders and Return Payment Link
+        collection.insert_many(orders)
+
+        payment_id = order_models_dict_array[0]["payment_id"]
+
+        # buy shipment start
+        shippingDetails = shippingService.create_and_buy_shipment(None, address)
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
             filter = {"payment_id": payment_id}
@@ -1147,7 +1315,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
 def get_order_details_by_order_id(request, order_id):
     try:
 
-        print(order_id)
+        # print(order_id)
         pipeline = [
             {"$match": {"_id": ObjectId(order_id)}},
             {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
@@ -1299,7 +1467,7 @@ def update_order_status(order_id, status, customer_id, user_type):
                 {"_id": ObjectId(order_id), "customer_id": customer_id}
             )
             if db_document == None:
-                return {"message": "Not authenticated", "status": "error"}
+                return {"message": "Please Login First", "status": "error"}
 
         result = collection.update_one(
             {"_id": ObjectId(order_id)},
@@ -1683,7 +1851,7 @@ def check_order_tracking_status_and_update_deliver_or_not(request):
         for result in results:
             trk_id = result["shippingDetails"]["data"]["tracker"]["id"]
             trk_details = shippingService.track_order_by_id(trk_id)
-            print(trk_details)
+            # print(trk_details)
             if trk_details["status"] == "success":
                 if trk_details["data"]["status"] == "delivered":
                     collection.update_one(

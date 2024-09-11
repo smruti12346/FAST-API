@@ -42,9 +42,19 @@ def create(user_data):
         if check_email_exist(user_data["email"]) is None:
             user_data["password"] = pwd_context.hash(user_data["password"])
             result = collection.insert_one(user_data)
+
+            access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token = create_access_token(
+                data={"sub": user_data["email"]}, expires_delta=access_token_expires
+            )
+
             return {
-                "message": "data inserted successfully",
-                "_id": str(result.inserted_id),
+                "message": "Registration Successful",
+                "access_token": access_token,
+                "name": user_data["name"],
+                "email": user_data["email"],
+                "user_type": 1,
+                "token_type": "bearer",
                 "status": "success",
             }
         else:
@@ -331,7 +341,9 @@ def update_address(id, email, data):
                 # Set the id and status based on the presence of the address list and "id"
                 if address_list and "id" in address_list[-1]:
                     data["id"] = int(address_list[-1]["id"]) + 1
-                    data["primary_status"] = 0  # status = 0 if "id" exists in the last item
+                    data["primary_status"] = (
+                        0  # status = 0 if "id" exists in the last item
+                    )
                 else:
                     data["id"] = 1
                     data["primary_status"] = 1  # status = 1 otherwise
@@ -341,9 +353,9 @@ def update_address(id, email, data):
             )
 
             if result.modified_count == 1:
-                return {"message": "data updated successfully", "status": "success"}
+                return {"message": "Address added successfully", "status": "success"}
             else:
-                return {"message": "failed to update", "status": "error"}
+                return {"message": "failed to add address", "status": "error"}
         else:
             return shippingDetails
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Body, Request, Depends, BackgroundTasks
-from Models.Order import OrderModel, InvoiceModel
+from Models.Order import OrderModel, InvoiceModel, GuestOrderModel
 import services.cartService as cartService
 import services.userService as userService
 import services.orderService as orderService
@@ -16,7 +16,7 @@ router = APIRouter()
 #     if "_id" in token:
 #         return cartService.add_to_cart(str(token["_id"]), product_id)
 #     else:
-#         return {"message": "Not authenticated", "status": "error"}
+#         return {"message": "Please Login First", "status": "error"}
 
 
 # ======================================================================================================
@@ -39,7 +39,7 @@ def get_all_cart_details_by_user_id(
     if "_id" in token:
         return cartService.get_all_cart_details_by_user_id(request, str(token["_id"]))
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post("/check_order_quantity/", tags=["CART MANAGEMENT"])
@@ -65,11 +65,14 @@ def order_create(
             entry for entry in token["address"] if entry["primary_status"] == 1
         ]
         country_code = primary_address[0]["country_code"]
-        return orderService.order_create(
-            token, country_code, product_details
-        )
+        return orderService.order_create(token, country_code, product_details)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
+
+
+@router.post("/guest_order_create/", tags=["ORDER MANAGEMENT"])
+def guest_order_create(product_details: List[GuestOrderModel] = Body(...)):
+    return orderService.guest_order_create(product_details)
 
 
 # @router.post("/capture-created-order/", tags=["ORDER MANAGEMENT"])
@@ -83,7 +86,7 @@ def order_create(
 #     if "_id" in token:
 #         return orderService.capture_created_order(str(token["_id"]), payment_id)
 #     else:
-#         return {"message": "Not authenticated", "status": "error"}
+#         return {"message": "Please Login First", "status": "error"}
 
 
 @router.get("/orders_by_user/{page}", tags=["ORDER MANAGEMENT"])
@@ -98,7 +101,7 @@ def get_all_orders_by_user(
             request, str(token["_id"]), page, show_page
         )
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.put("/update-order-status/{order_id}", tags=["ORDER MANAGEMENT"])
@@ -110,7 +113,7 @@ def update_order_status(
             order_id, status, str(token["_id"]), token["user_type"]
         )
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post(
@@ -132,7 +135,7 @@ def check_order_tracking_status_and_update_user_wise_deliver_or_not(
             request, str(token["_id"])
         )
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 @router.post("/create-order-return-request/", tags=["SHIPPING MANAGEMENT"])
@@ -142,7 +145,7 @@ def create_order_return_request(
     if "_id" in token:
         return orderService.create_order_return_request(request, order_id)
     else:
-        return {"message": "Not authenticated", "status": "error"}
+        return {"message": "Please Login First", "status": "error"}
 
 
 # ======================================================================================================
@@ -180,10 +183,12 @@ def get_all_orders_count_status_wise():
 
 
 @router.post("/get-order-invoice/", tags=["ORDER REPORTS"])
-def get_order_invoice(request: Request, data: InvoiceModel, background_tasks: BackgroundTasks):
+def get_order_invoice(
+    request: Request, data: InvoiceModel, background_tasks: BackgroundTasks
+):
     return orderService.get_order_invoice(request, data, background_tasks)
 
 
 @router.get("/get-order-details-by-order-id/{order_id}", tags=["ORDER REPORTS"])
-def get_order_details_by_order_id(request: Request, order_id:str):
+def get_order_details_by_order_id(request: Request, order_id: str):
     return orderService.get_order_details_by_order_id(request, order_id)

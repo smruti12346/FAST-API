@@ -7,6 +7,8 @@ from bson import ObjectId
 from datetime import datetime
 from .common import paginate
 
+import requests
+
 import services.paymentService as paymentService
 
 api_key = "2TDp15wsUbcC95Z42Y4BrQ"
@@ -287,8 +289,8 @@ def validate_address(street1, city, state, zip, country, email, phone):
         return {"message": str(e), "status": "error"}
 
 
-# def create_shipment_and_get_rates(name, street1, city_id, state_id, zip, country_id, email, phone):
-def create_shipment_and_get_rates(data):
+
+def create_shipment_and_get_rates(data, userAddressDetails=None):
     try:
         AdminShipingDetails = view_by_status(1)
         if (
@@ -300,14 +302,13 @@ def create_shipment_and_get_rates(data):
             return {"message": "Shipping address not set", "status": "error"}
 
         client = easypost.EasyPostClient(api_key)
-        userAddressDetails = ""
 
-        for item in data["address"]:
-            if item["primary_status"] == 1:
-                userAddressDetails = item
+        if userAddressDetails is None:
+            for item in data["address"]:
+                if item["primary_status"] == 1:
+                    userAddressDetails = item
 
-        if userAddressDetails != "":
-
+        if userAddressDetails is not None:
             shipment = client.shipment.create(
                 # carrier_accounts=["ca_c42e6d3b0c3c4964ae880ce2f0e62588"],
                 # service="Express",
@@ -321,7 +322,7 @@ def create_shipment_and_get_rates(data):
                     "zip": userAddressDetails["pin_number"],  # "90277",
                     "country": userAddressDetails["country_code"],  # "US",
                     "phone": userAddressDetails["phone_number"],  # "4153334444",
-                    "email": data["email"],  # "dr_steve_brule@gmail.com",
+                    "email": data["email"] if data != None else userAddressDetails["email"],  # "dr_steve_brule@gmail.com",
                 },
                 from_address={
                     "name": AdminShipingDetails["data"][0]["name"],  # "EasyPost"
@@ -477,13 +478,15 @@ def get_shipping_label(shipping_id):
         result = {}
         shipment = client.shipment.label(shipping_id, file_format="PDF")
         shipping_details = json.loads(json.dumps(shipment.to_dict()))
-        result['postage_label_url'] = shipping_details['postage_label']['label_url']
-        result['billing_type'] = shipping_details['selected_rate']['billing_type']
-        result['carrier'] = shipping_details['selected_rate']['carrier']
-        result['carrier_account_id'] = shipping_details['selected_rate']['carrier_account_id']
-        result['currency'] = shipping_details['selected_rate']['retail_currency']
-        result['retail_rate'] = shipping_details['selected_rate']['retail_rate']
-        result['tracking_url'] = shipping_details['tracker']['public_url']
+        result["postage_label_url"] = shipping_details["postage_label"]["label_url"]
+        result["billing_type"] = shipping_details["selected_rate"]["billing_type"]
+        result["carrier"] = shipping_details["selected_rate"]["carrier"]
+        result["carrier_account_id"] = shipping_details["selected_rate"][
+            "carrier_account_id"
+        ]
+        result["currency"] = shipping_details["selected_rate"]["retail_currency"]
+        result["retail_rate"] = shipping_details["selected_rate"]["retail_rate"]
+        result["tracking_url"] = shipping_details["tracker"]["public_url"]
 
         return {
             "data": result,
@@ -493,11 +496,26 @@ def get_shipping_label(shipping_id):
         return {"message": str(e), "status": "error"}
 
 
+def create_and_buy_shipment(data, userAddressdetails):
+    created_shipment = create_shipment_and_get_rates(data, userAddressdetails)
 
-def create_and_buy_shipment(data):
-    created_shipment = create_shipment_and_get_rates(data)
-
-    if created_shipment['status'] == "success":
-        return buy_shipment_for_deliver(created_shipment['data']['id'], 0, 0)
+    if created_shipment["status"] == "success":
+        return buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
     else:
         return {"message": "unable to create shipment", "status": "error"}
+
+
+def get_address_using_zip_code(zip_code):
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {"address": zip_code, "key": api_key}
+
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        if data["status"] == "OK" and data["results"]:
+            return data["results"][0]["formatted_address"]
+        else:
+            print("No address found for the specified ZIP code.")
+    else:
+        print("Error retrieving address:", response.text)
