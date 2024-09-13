@@ -108,11 +108,14 @@ def view(request, page, show_page, id):
 
 
 def delete(id: str):
-    result = collection.update_one(
-        {"_id": ObjectId(id)},
-        {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
-    )
-    if result.modified_count == 1:
-        return {"message": "data deleted successfully", "status": "success"}
-    else:
-        return {"message": "failed to delete", "status": "error"}
+    try:
+        result = collection.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
+        )
+        if result.modified_count == 1:
+            return {"message": "data deleted successfully", "status": "success"}
+        else:
+            return {"message": "failed to delete", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}

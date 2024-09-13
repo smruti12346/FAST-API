@@ -776,37 +776,43 @@ def guest_order_create(product_details):
                 return updated_product
         # check quantity end
 
-        # # update quantity and varient after check quantity start
-        # for existing_order_data in order_models_dict_array:
-        #     result = list(
-        #         db["product"].find(
-        #             {
-        #                 "_id": ObjectId(existing_order_data["product_id"]),
-        #                 "deleted_at": None,
-        #             }
-        #         )
-        #     )
-        #     updated_product = update_variant_quantity(
-        #         result[0],
-        #         existing_order_data["order_details"]["varientArr"],
-        #         existing_order_data["order_details"]["total_quantity"],
-        #         payment_id,
-        #     )
-        #     db["product"].update_one(
-        #         {"_id": ObjectId(existing_order_data["product_id"])},
-        #         {
-        #             "$set": {
-        #                 "quantity": int(updated_product["data"]["quantity"]),
-        #                 "variant": updated_product["data"]["variant"],
-        #             },
-        #             "$inc": {
-        #                 "sold_quantity": +existing_order_data["order_details"][
-        #                     "total_quantity"
-        #                 ]
-        #             },
-        #         },
-        #     )
-        # # update quantity and varient after check quantity end
+        # update quantity and varient after check quantity start
+        for existing_order_data in order_models_dict_array:
+            result = list(
+                db["product"].find(
+                    {
+                        "_id": ObjectId(existing_order_data["product_id"]),
+                        "deleted_at": None,
+                    }
+                )
+            )
+
+            #  # check quantity avilable or not start
+            # updated_product = update_variant_quantity(
+            #     result[0],
+            #     existing_order_data["order_details"]["varientArr"],
+            #     existing_order_data["order_details"]["total_quantity"],
+            #     payment_id,
+            # )
+            #  # check quantity avilable or not end
+
+            db["product"].update_one(
+                {"_id": ObjectId(existing_order_data["product_id"])},
+                {
+                    #  # impliment quantity start
+                    # "$set": {
+                    #     "quantity": int(updated_product["data"]["quantity"]),
+                    #     "variant": updated_product["data"]["variant"],
+                    # },
+                    #  # impliment quantity end
+                    "$inc": {
+                        "sold_quantity": +existing_order_data["order_details"][
+                            "total_quantity"
+                        ]
+                    },
+                },
+            )
+        # update quantity and varient after check quantity end
 
         filter = {"payment_id": payment_id}
         update = {

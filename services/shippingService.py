@@ -6,6 +6,7 @@ from db import db
 from bson import ObjectId
 from datetime import datetime
 from .common import paginate
+import uuid
 
 import requests
 
@@ -289,7 +290,6 @@ def validate_address(street1, city, state, zip, country, email, phone):
         return {"message": str(e), "status": "error"}
 
 
-
 def create_shipment_and_get_rates(data, userAddressDetails=None):
     try:
         AdminShipingDetails = view_by_status(1)
@@ -297,9 +297,22 @@ def create_shipment_and_get_rates(data, userAddressDetails=None):
             AdminShipingDetails["status"] == "success"
             and len(AdminShipingDetails["data"]) > 0
         ):
+            shipping_company_name = AdminShipingDetails["data"][0][
+                "shipping_company_name"
+            ]
             api_key = AdminShipingDetails["data"][0]["api_key"]
         else:
             return {"message": "Shipping address not set", "status": "error"}
+
+        if shipping_company_name == "self":
+            return {
+                "data": {
+                    "id": str(uuid.uuid1()),
+                    "shipping_company_name": "self",
+                    "tracker": None,
+                },
+                "status": "success",
+            }
 
         client = easypost.EasyPostClient(api_key)
 
@@ -322,7 +335,9 @@ def create_shipment_and_get_rates(data, userAddressDetails=None):
                     "zip": userAddressDetails["pin_number"],  # "90277",
                     "country": userAddressDetails["country_code"],  # "US",
                     "phone": userAddressDetails["phone_number"],  # "4153334444",
-                    "email": data["email"] if data != None else userAddressDetails["email"],  # "dr_steve_brule@gmail.com",
+                    "email": (
+                        data["email"] if data != None else userAddressDetails["email"]
+                    ),  # "dr_steve_brule@gmail.com",
                 },
                 from_address={
                     "name": AdminShipingDetails["data"][0]["name"],  # "EasyPost"
@@ -500,6 +515,12 @@ def create_and_buy_shipment(data, userAddressdetails):
     created_shipment = create_shipment_and_get_rates(data, userAddressdetails)
 
     if created_shipment["status"] == "success":
+        if (
+            created_shipment["data"]["shipping_company_name"]
+            and created_shipment["data"]["shipping_company_name"] == "self"
+        ):
+            return created_shipment
+
         return buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
     else:
         return {"message": "unable to create shipment", "status": "error"}
