@@ -275,6 +275,28 @@ def change_status(payment_id: str):
 def validate_address(street1, city, state, zip, country, email, phone):
 
     try:
+        AdminShipingDetails = view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            shipping_company_name = AdminShipingDetails["data"][0][
+                "shipping_company_name"
+            ]
+            api_key = AdminShipingDetails["data"][0]["api_key"]
+        else:
+            return {"message": "Shipping address not set", "status": "error"}
+
+        if shipping_company_name == "self":
+            return {
+                "data": {
+                    "verifications": {"delivery" : {"success" : True}},
+                    "shipping_company_name": "self",
+                },
+                "status": "success",
+            }
+
+        client = easypost.EasyPostClient(api_key)
         address = client.address.create(
             verify_strict=True,
             street1=street1,  # "Bapuji Nagar Lane No 5 67",

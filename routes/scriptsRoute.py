@@ -10,3 +10,11 @@ def generate_dummy_product():
 @router.post("/generate-dummy-orders/")
 def generate_dummy_order_route_handle():
     return scripts.generate_dummy_order_route_handle()
+
+@router.post("/update-catgory-arr/{parent_id}")
+def update_category_arr(parent_id:int):
+    return scripts.update_category_arr(parent_id, None)
+
+@router.post("/get-all-category-arr-hirarchy/")
+def get_all_category_arr_hirarchy():
+    return scripts.get_all_category_arr_hirarchy()

@@ -15,7 +15,8 @@ class OrderDetails(BaseModel):
     discountAmount: float
     tax_percentage: Optional[float] = 0
     taxAmount: Optional[float] = 0
-    purchase_units: Optional[dict] = 0
+    purchase_units: Optional[dict] = None
+    varientSuggestionArr: Optional[dict] = None
     sale_price: float
     varient_name_arr: Optional[List[str]] = None
     stock_quantity: int

@@ -1,6 +1,7 @@
 import random
 from db import db
 from datetime import datetime, timedelta
+import services.categoryService as categoryService
 
 
 def random_date(start, end):
@@ -291,3 +292,29 @@ def generate_dummy_order_route_handle():
     db["order"].insert_many(dummy_data)
     return {"data": "data inserted successfully", "status": "success"}
 
+
+
+def update_category_arr(parent_id, arr=None):
+    if arr is None:
+        arr = []
+
+    collection = db['category']
+    result = collection.find_one({"id": parent_id})
+
+    if result and 'parent_id' in result:
+        arr.append(result['parent_id'])
+        update_category_arr(result['parent_id'], arr)
+    
+    return arr
+
+
+def get_all_category_arr_hirarchy():
+    collection = db['category']
+    result = collection.find()
+    for item in result:
+        parent_id_arr =  update_category_arr(item['id'], None)
+        # print("slug = > ",item['name'],type(item['_id']), update_category_arr(item['id'], None))
+        collection.update_one(
+            {"_id": item['_id']},
+            {"$set": {"parent_id_arr": parent_id_arr}}
+        )
