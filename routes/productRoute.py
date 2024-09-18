@@ -145,8 +145,8 @@ def get_product_by_slug(request: Request, product_slug: str):
 
 
 @router.get("/search_products/", tags=["PRODUCT FILTER"])
-def search_products(query: str = Query(...)):
-    return productService.search_products(query)
+def search_products(request: Request, query: str = Query(..., min_length=2)):
+    return productService.search_products(request, query)
 
 
 # ======================================================================================================

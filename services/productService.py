@@ -274,15 +274,61 @@ def get_all_product(request, page, show_page):
         return {"message": str(e), "status": "error"}
 
 
-def search_products(query):
+def search_products(request, query):
     try:
-        collection.create_index([("name", "text")])
-        results = []
-        cursor = collection.find(
-            {"$text": {"$search": query}}, {"name": 1, "slug": 1, "_id": 0}
-        ).limit(6)
-        for document in cursor:
-            results.append(document)
+        # collection.create_index([("name", "text")])
+        # results = []
+        # cursor = collection.find(
+        #     {"$text": {"$search": query}}, {"name": 1, "slug": 1, "_id": 0}
+        # ).limit(6)
+        # for document in cursor:
+        #     results.append(document)
+        # return {"data": results, "status": "success"}
+
+        pipeline = [
+            {
+                "$search": {
+                    "index": "default",
+                    "autocomplete": {
+                        "query": query,
+                        "path": "name",
+                    },
+                }
+            },
+            {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$cover_image",
+                        ]
+                    },
+                    
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "name": 1,
+                    "product_sku": 1,
+                    "slug": 1,
+                    "imageUrl": 1,
+                    "imageUrl300": 1,
+                    "main_price": 1,
+                    "sale_price": 1,
+                }
+            },  # Only return the 'name' field
+        ]
+
+        results = list(collection.aggregate(pipeline))
         return {"data": results, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
