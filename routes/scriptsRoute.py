@@ -18,3 +18,7 @@ def update_category_arr(parent_id:int):
 @router.post("/get-all-category-arr-hirarchy/")
 def get_all_category_arr_hirarchy():
     return scripts.get_all_category_arr_hirarchy()
+
+@router.post("/convert-to-valid-slug/")
+def convert_to_valid_slug():
+    return scripts.convert_to_valid_slug()

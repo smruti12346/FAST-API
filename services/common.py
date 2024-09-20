@@ -1,6 +1,16 @@
 from math import ceil
+import math
 from PIL import Image
 import os
+
+def replace_nan_with_default(data, default_value=0):
+    if isinstance(data, list):
+        return [replace_nan_with_default(item, default_value) for item in data]
+    elif isinstance(data, dict):
+        return {key: replace_nan_with_default(value, default_value) for key, value in data.items()}
+    elif isinstance(data, float) and (math.isnan(data) or math.isinf(data)):
+        return default_value
+    return data
 
 def paginate(collection, query, page=1, page_size=10):
     try:
@@ -23,7 +33,7 @@ def paginate(collection, query, page=1, page_size=10):
             }}
         ]
         result = list(collection.aggregate(pipeline))[0]
-        page_data = result["data"]
+        page_data = replace_nan_with_default(result["data"]) 
         total_count = result["total"][0]["count"] if result["total"] else 0
         total_pages = ceil(total_count / page_size)
 

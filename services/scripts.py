@@ -2,6 +2,7 @@ import random
 from db import db
 from datetime import datetime, timedelta
 import services.categoryService as categoryService
+import re
 
 
 def random_date(start, end):
@@ -318,3 +319,22 @@ def get_all_category_arr_hirarchy():
             {"_id": item['_id']},
             {"$set": {"parent_id_arr": parent_id_arr}}
         )
+
+
+def create_slug(input_string):
+    # Convert to lowercase, remove unwanted characters, replace spaces/commas with hyphens
+    slug = re.sub(r'[^a-z0-9\s,-]', '', input_string.lower())  # Remove special characters except commas and hyphens
+    slug = re.sub(r'[\s,]+', '-', slug)  # Replace spaces and commas with hyphens
+    slug = re.sub(r'-+', '-', slug).strip()  # Replace multiple hyphens with a single hyphen
+    return slug
+
+def convert_to_valid_slug():
+    collection = db['product']
+    for doc in collection.find():  # Add filter if necessary, e.g., find({"slug": {"$exists": False}})
+        original_value = doc.get("slug", "")  # Replace 'field_name' with your target field containing the input string
+        if original_value:
+            updated_slug = create_slug(original_value)
+            # Update the document with the new slug
+            collection.update_one({"_id": doc["_id"]}, {"$set": {"slug": updated_slug}})
+
+    print("Slugs updated successfully.")
