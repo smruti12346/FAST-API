@@ -48,6 +48,14 @@ def view_by_coupon_code_with_customer_id(coupon_code: str, token: str = Depends(
         return discountCouponService.view_by_coupon_code_with_customer_id(coupon_code,  str(token["_id"]))
     else:
         return {"message": "Please Login First", "status": "error"}
+    
+@router.get(
+    "/view-discount-coupon-details-by-coupon-code-and-customer-email-phone-number/{coupon_code}",
+    tags=["DISCOUNT COUPON DETAILS MANAGEMENT"],
+)
+def view_by_coupon_code_with_customer_email_phone_number(coupon_code: str, email: str , phone_number : str):
+    return discountCouponService.view_by_coupon_code_with_customer_email_phone_number(coupon_code,  email,  phone_number)
+
 
 
 @router.put(

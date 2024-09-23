@@ -151,6 +151,52 @@ def view_by_coupon_code(coupon_code):
         return {"message": str(e), "status": "error"}
 
 
+def view_by_coupon_code_with_customer_email_phone_number(coupon_code, email, phone_number):
+
+    try:
+
+        check_result = list(db["order"].find(
+            {
+                "$or": [
+                    {"email": email},
+                    {"phone_number": phone_number}
+                ],
+                "discount_id": coupon_code,
+                "status": {"$nin": [1, 2, 3]},
+            }
+        ))
+
+        if len(check_result) != 0 :
+            return {"message": "Coupon code already used by customer", "status": "error"}
+
+        pipeline = [
+            {"$match": {"coupon_code": coupon_code, "status": 1, "deleted_at": None}},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "deleted_at": 1,
+                    "name": 1,
+                    "coupon_code": 1,
+                    "validity": 1,
+                    "value_in_percentage": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "created_by": 1,
+                    "updated_at": 1,
+                    "updated_by": 1,
+                }
+            },
+        ]
+        result = collection.aggregate(pipeline)
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def view_by_coupon_code_with_customer_id(coupon_code, customer_id):
     try:
 
