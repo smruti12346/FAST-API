@@ -724,7 +724,7 @@ def guest_order_create(product_details):
 
         # buy shipment start
         shippingDetails = shippingService.create_and_buy_shipment(None, address)
-        print(shippingDetails)
+        # print(shippingDetails)
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
             filter = {"payment_id": payment_id}
