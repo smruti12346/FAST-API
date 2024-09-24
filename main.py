@@ -29,6 +29,7 @@ app.add_middleware(
         "https://python-next-ecommerce-frontend.vercel.app",
         "https://zvu.shoppingxperts.com",
         "https://riverranch-api.shoppingxperts.com",
+        "https://www.thera-posture.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],

@@ -344,6 +344,7 @@ def create_shipment_and_get_rates(data, userAddressDetails=None):
                     userAddressDetails = item
 
         if userAddressDetails is not None:
+            print(userAddressDetails)
             shipment = client.shipment.create(
                 # carrier_accounts=["ca_c42e6d3b0c3c4964ae880ce2f0e62588"],
                 # service="Express",
@@ -535,12 +536,12 @@ def get_shipping_label(shipping_id):
 
 def create_and_buy_shipment(data, userAddressdetails):
     created_shipment = create_shipment_and_get_rates(data, userAddressdetails)
+    print(created_shipment)
 
     if created_shipment["status"] == "success":
-        if (
-            created_shipment["data"]["shipping_company_name"]
-            and created_shipment["data"]["shipping_company_name"] == "self"
-        ):
+        shipping_company_name = created_shipment["data"].get("shipping_company_name")
+
+        if shipping_company_name and shipping_company_name == "self":
             return created_shipment
 
         return buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)

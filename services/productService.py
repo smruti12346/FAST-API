@@ -325,7 +325,8 @@ def search_products(request, query):
                     "main_price": 1,
                     "sale_price": 1,
                 }
-            },  # Only return the 'name' field
+            },
+            {"$limit": 5},
         ]
 
         results = list(collection.aggregate(pipeline))
