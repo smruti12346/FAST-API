@@ -75,6 +75,28 @@ class UserModelAddressUpdate(BaseModel):
         if isinstance(value, str):
             return cls(**json.loads(value))
         return value
+    
+class UserModelAddressUpdateById(BaseModel):
+    full_name: str 
+    phone_number: str
+    country_code: str
+    state_code: str
+    city_name: str
+    pin_number: str
+    roadName_area_colony: str
+    house_bulding_name: str
+    landmark: str
+    primary_status: Optional[int] = Field(default=0)
+    status: Optional[int] = Field(default=1)
+    deleted_at: Optional[str] = None
+    id: int
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
 
 
 class UserModelBankDetailsUpdate(BaseModel):

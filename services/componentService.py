@@ -54,6 +54,113 @@ def get_component(request, page, show_page):
         return {"message": str(e), "status": "error"}
 
 
+def get_component_by_slug(request, slug):
+    try:
+        pipeline = [
+            {"$match": {"slug": slug, "deleted_at": None}},
+            {"$sort": {"created_at": 1}},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "deleted_at": 1,
+                    "name": 1,
+                    "slug": 1,
+                    "fields": 1,
+                    "field_values": {
+                        "$map": {
+                            "input": "$field_values",
+                            "as": "field_value",
+                            "in": {
+                                "heading": "$$field_value.heading",
+                                "button-link": "$$field_value.button-link",
+                                "description": "$$field_value.description",
+                                "id": "$$field_value.id",
+                                "image": {
+                                    "$cond": {
+                                        "if": {
+                                            "$eq": [
+                                                {"$type": "$$field_value.image"},
+                                                "string",
+                                            ]
+                                        },
+                                        "then": "$$field_value.image",
+                                        "else": None,
+                                    }
+                                },
+                                "imageUrl": {
+                                    "$cond": {
+                                        "if": {
+                                            "$eq": [
+                                                {"$type": "$$field_value.image"},
+                                                "string",
+                                            ]
+                                        },
+                                        "then": {
+                                            "$concat": [
+                                                str(request.base_url)[:-1],
+                                                "/uploads/component/",
+                                                "$$field_value.image",
+                                            ]
+                                        },
+                                        "else": None,
+                                    }
+                                },
+                                "imageUrl100": {
+                                    "$cond": {
+                                        "if": {
+                                            "$eq": [
+                                                {"$type": "$$field_value.image"},
+                                                "string",
+                                            ]
+                                        },
+                                        "then": {
+                                            "$concat": [
+                                                str(request.base_url)[:-1],
+                                                "/uploads/component/100/",
+                                                "$$field_value.image",
+                                            ]
+                                        },
+                                        "else": None,
+                                    }
+                                },
+                                "imageUrl300": {
+                                    "$cond": {
+                                        "if": {
+                                            "$eq": [
+                                                {"$type": "$$field_value.image"},
+                                                "string",
+                                            ]
+                                        },
+                                        "then": {
+                                            "$concat": [
+                                                str(request.base_url)[:-1],
+                                                "/uploads/component/300/",
+                                                "$$field_value.image",
+                                            ]
+                                        },
+                                        "else": None,
+                                    }
+                                },
+                            },
+                        }
+                    },
+                    "description": 1,
+                    "seo": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "created_by": 1,
+                    "updated_at": 1,
+                    "updated_by": 1,
+                }
+            },
+        ]
+
+        result = list(collection.aggregate(pipeline))
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def get_all_component(request):
     try:
         result = list(collection.find())
@@ -91,6 +198,41 @@ async def add_component_details(data_dict, id):
             return {"message": "data added successfully", "status": "success"}
         else:
             return {"message": "failed to update", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+async def update_component_details(data_dict, parent_id, child_id):
+    try:
+        new_data_dict = dict(data_dict)
+        for key, value in data_dict.items():
+            if hasattr(value, "filename") and hasattr(value, "file"):
+                PATH_FILES = getcwd() + "/uploads/component/"
+                os.makedirs(PATH_FILES, exist_ok=True)
+                filename = f"{uuid.uuid1()}-{os.path.splitext(value.filename)[0]}"
+                mainFileName = filename + os.path.splitext(value.filename)[1]
+
+                with open(PATH_FILES + mainFileName, "wb") as myfile:
+                    content = await value.read()
+                    myfile.write(content)
+                    myfile.close()
+                resize_image(filename, mainFileName, PATH_FILES)
+                new_data_dict[key] = filename + ".webp"
+
+        result = collection.update_one(
+            {"_id": ObjectId(parent_id), "field_values.id": child_id},
+            {
+                "$set": {
+                    f"field_values.$.{key}": value
+                    for key, value in new_data_dict.items()
+                }
+            },
+        )
+        if result.modified_count == 1:
+            return {"message": "data added successfully", "status": "success"}
+        else:
+            return {"message": "failed to update", "status": "error"}
+
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

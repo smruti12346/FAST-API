@@ -5,13 +5,14 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from Models.User import Token
-import requests
 from pydantic import Field
 import services.shippingService as shippingService
-import services.locationService as locationService
+import services.smtpService as smtpService
 from .common import paginate
+import random
+from urllib.parse import urlparse
 
 
 collection = db["user"]
@@ -361,6 +362,64 @@ def update_address(id, email, data):
 
     except Exception as e:
         return {"message": str(e), "status": "error"}
+    
+
+def update_address_using_id(id, email, data):
+    try:
+        data = dict(data)
+        print(id)
+        print(email)
+        print(data)
+        shippingDetails = shippingService.validate_address(
+            data["roadName_area_colony"],
+            data["city_name"],
+            data["state_code"],
+            data["pin_number"],
+            data["country_code"],
+            email,
+            data["phone_number"],
+        )
+
+        if (
+            shippingDetails["status"] != "error"
+            and shippingDetails["data"]["verifications"]["delivery"]["success"] == True
+        ):
+            # mainArr = collection.find_one({"_id": ObjectId(id), "deleted_at": None})
+
+            # if len(mainArr) > 0:
+            #     address_list = mainArr.get("address", [])
+
+            #     # Set the id and status based on the presence of the address list and "id"
+            #     if address_list and "id" in address_list[-1]:
+            #         data["id"] = int(address_list[-1]["id"]) + 1
+            #         data["primary_status"] = (
+            #             0  # status = 0 if "id" exists in the last item
+            #         )
+            #     else:
+            #         data["id"] = 1
+            #         data["primary_status"] = 1  # status = 1 otherwise
+            # # print(data)
+
+            address_id = data["id"]
+            data.pop("id", None)
+            result = collection.update_one(
+                {
+                    "_id": ObjectId(id),
+                    "address.id": address_id
+                },
+                {
+                    "$set": {f"address.$.{key}": value for key, value in data.items()}
+                }
+            )
+            if result.modified_count == 1:
+                return {"message": "Address added successfully", "status": "success"}
+            else:
+                return {"message": "failed to add address", "status": "error"}
+        else:
+            return shippingDetails
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
 
 
 # def delete_address(user_id: str, user_address_id: int):
@@ -495,3 +554,137 @@ def change_bank_status(user_id: str, bank_id: int):
         return {"message": "status changed successfully", "status": "success"}
     else:
         return {"message": "user bank's details not found", "status": "error"}
+
+
+def forget_password_link_send(user_email: str, request):
+    try:
+        otp = "".join([str(random.randint(0, 9)) for _ in range(6)])
+
+        user = check_email_exist(user_email)
+        if user is not None:
+            user_id = str(user["_id"])
+            url = str(request.base_url)[:-1]
+            parsed_url = urlparse(url)
+            mainUrl = f"{parsed_url.hostname}"
+
+            result = collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"forget_password_otp": int(otp)}},
+            )
+
+            body = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Password Reset OTP</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        background-color: #f4f4f4;
+                        margin: 0;
+                        padding: 20px;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: auto;
+                        background: white;
+                        padding: 20px;
+                        border-radius: 5px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+                    h2 {{
+                        color: #333;
+                    }}
+                    p {{
+                        color: #555;
+                    }}
+                    .otp {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #007BFF;
+                    }}
+                    .footer {{
+                        margin-top: 20px;
+                        font-size: 12px;
+                        color: #888;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>Password Reset Request</h2>
+                    <p>Hi {user['name']},</p>
+                    <p>We received a request to reset your password. Please use the One-Time Password (OTP) below to proceed:</p>
+                    
+                    <p class="otp">{otp}</p>
+
+                    <p>This OTP is valid for a limited time only. If you did not request a password reset, please ignore this email.</p>
+
+                    <p>
+                        Thank you,<br> 
+                        {mainUrl}                   
+                    </p>
+
+                    <div class="footer">
+                        <p>If you have any questions, feel free to contact our support team.</p>
+                    </div>
+                </div>
+            </body>
+            </html>"""
+            if result.modified_count == 1:
+                smtpService.send_email(
+                    user_email, "One-Time Password for Password Reset", body
+                )
+                return {"message": "Email sent successfully", "status": "success"}
+            else:
+                return {"message": "failed to change status", "status": "error"}
+        else:
+            return {
+                "message": "this user is not exist",
+                "status": "fail",
+            }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def reset_password_with_otp(
+    user_email: str, password: str, confirm_password: str, otp: int
+):
+    try:
+        user = check_email_exist(user_email)
+        if user is not None:
+            user_id = str(user["_id"])
+            if password == confirm_password:
+                if user["forget_password_otp"] == otp:
+                    result = collection.update_one(
+                        {"_id": ObjectId(user_id)},
+                        {
+                            "$set": {
+                                "password": pwd_context.hash(password),
+                                "forget_password_otp": None,
+                            }
+                        },
+                    )
+                    if result.modified_count == 1:
+                        return {
+                            "message": "password changed successfully",
+                            "status": "success",
+                        }
+                    else:
+                        return {"message": "failed to change status", "status": "error"}
+                else:
+                    return {"message": "invalid otp", "status": "error"}
+            else:
+                return {
+                    "message": "password and confirm password are not match",
+                    "status": "error",
+                }
+        else:
+            return {
+                "message": "this user is not exist",
+                "status": "fail",
+            }
+    except Exception as e:
+        return {"message": str(e), "status": "error"}

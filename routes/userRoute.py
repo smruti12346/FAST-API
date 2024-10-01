@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Request
 import services.userService as userService
 from Models.User import (
     UserModel,
@@ -6,6 +6,7 @@ from Models.User import (
     UserModelAddressUpdate,
     UserModelBankDetailsUpdate,
     Token,
+    UserModelAddressUpdateById
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from services.common import convert_oid_to_str
@@ -100,9 +101,10 @@ def login_user_details(token: str = Depends(userService.get_current_user)):
 
 
 # ADDRESS SECTION START
-@router.put("/users/update-address/{user_id}", tags=["USER ADDRESS MANAGEMENT"])
-def update_address(user_id: str, data: UserModelAddressUpdate = Body(...)):
-    return userService.update_address(user_id, data)
+# @router.put("/users/update-address/{user_id}", tags=["USER ADDRESS MANAGEMENT"])
+# def update_address(user_id: str, data: UserModelAddressUpdate = Body(...)):
+#     return userService.update_address(user_id, data)
+
 
 
 @router.put("/users/update-user-address/", tags=["USER ADDRESS MANAGEMENT"])
@@ -114,6 +116,15 @@ def update_address(
         return userService.update_address(str(token["_id"]), str(token["email"]), data)
     else:
         return {"message": "Please Login First", "status": "error"}
+    
+# ADDRESS SECTION START
+@router.put("/users/update-address-using-id/", tags=["USER ADDRESS MANAGEMENT"])
+def update_address_using_id(token: str = Depends(userService.get_current_user), data: UserModelAddressUpdateById = Body(...)):
+    if "_id" in token:
+        return userService.update_address_using_id(str(token["_id"]),str(token["email"]), data)
+    else:
+        return {"message": "Please Login First", "status": "error"}
+
 
 
 @router.delete(
@@ -177,3 +188,12 @@ def change_bank_status(user_id: str, bank_id: int):
 
 
 # BANK SECTION END
+
+
+@router.post("/forgot-password/send-otp", tags=["FORGET PASSWORD MANAGEMNT"])
+def forget_password_link_send(user_email: str, request: Request):
+    return userService.forget_password_link_send(user_email, request)
+
+@router.post("/forgot-password/verify-otp", tags=["FORGET PASSWORD MANAGEMNT"])
+def reset_password_with_otp(user_email: str, password: str, confirm_password: str, otp: int):
+    return userService.reset_password_with_otp(user_email, password, confirm_password, otp)
