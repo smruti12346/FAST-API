@@ -1,4 +1,4 @@
-from fastapi import Request
+from fastapi import Request, BackgroundTasks
 from db import db
 from datetime import datetime
 from bson import ObjectId
@@ -10,6 +10,7 @@ import services.paymentService as paymentService
 import services.taxService as taxService
 import services.discountCouponService as discountCouponService
 import services.userService as userService
+import services.shippingService as shippingService
 import uuid
 import time
 
@@ -554,7 +555,9 @@ def order_create(customer_details, country_code, product_details):
         payment_id = order_models_dict_array[0]["payment_id"]
 
         # buy shipment start
-        shippingDetails = shippingService.create_and_buy_shipment(customer_details, None)
+        shippingDetails = shippingService.create_and_buy_shipment(
+            customer_details, None
+        )
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
             filter = {"payment_id": payment_id}
@@ -718,7 +721,7 @@ def guest_order_create(product_details):
         # print(orders)
 
         # Insert Orders and Return Payment Link
-        collection.insert_many(orders)
+        inserted_result = collection.insert_many(orders)
 
         payment_id = order_models_dict_array[0]["payment_id"]
 
@@ -822,6 +825,16 @@ def guest_order_create(product_details):
             }
         }
         collection.update_many(filter, update)
+
+        # email integration for invoice  start
+        for order_id in inserted_result.inserted_ids:
+            data = {
+                "email": ["prabhucharan.thetechnovate@gmail.com"],
+                "order_id": str(order_id),
+            }
+            get_order_invoice(Request, data, BackgroundTasks)
+        # email integration for invoice  start
+
         return {
             "message": "Order placed successfully",
             "payment_id": payment_id,
@@ -1629,6 +1642,7 @@ def get_all_orders_count_status_wise():
 
 def get_order_invoice(request, data, background_tasks):
     try:
+        admindetails = shippingService.view_by_status(1)["data"][0]["addressDetails"]
         data = dict(data)
         results = get_order_details_by_order_id(request, data["order_id"])
 
@@ -1753,16 +1767,16 @@ def get_order_invoice(request, data, background_tasks):
                                     <td colspan="5">
                                         <div class="clearfix">
                                             <div class="left">
-                                                <h2>Zylker Electronics Hub</h2>
-                                                <p>14B, Northern Street Greater South Avenue<br>
-                                                New York New York 10001 U.S.A</p>
+                                                <h2>{admindetails.get('full_name', '')}</h2>
+                                                <p>{admindetails.get('roadName_area_colony', '')}<br>
+                                                {admindetails.get('city_name', '')} {admindetails.get('pin_number', '')} {admindetails.get('country_code', '')}</p>
                                             </div>
                                             <div class="right">
                                                 <p>INVOICE</p>
                                                 <p>Invoice# : {result.get('_id', '')}<br>
-                                                Order Date : {result.get('created_at', '')}<br>
-                                                Terms : Due on Receipt<br>
-                                                Due Date : {result.get('created_at', '')}</p>
+                                                Order Date : {result.get('created_at', '')}<br><br>
+                                                <!-- Terms : Due on Receipt<br>
+                                                Due Date : {result.get('created_at', '')}</p> -->
                                             </div>
                                         </div>
                                     </td>
@@ -1800,12 +1814,16 @@ def get_order_invoice(request, data, background_tasks):
                                     <td>1</td>
                                     <td>{result.get('product_details')['name']}</td>
                                     <td>{result.get('order_details')['total_quantity']}</td>
-                                    <td>{result.get('product_details')['main_price']}</td>
+                                    <td>{result.get('order_details')['sale_price']}</td>
                                     <td>{result.get('order_details')['sale_price']}</td>
                                 </tr>
                                 <tr class="total">
                                     <td colspan="4" style="text-align: right;">Sub Total</td>
                                     <td style="text-align: right;">{result.get('order_details')['sale_price']}</td>
+                                </tr>
+                                <tr class="total">
+                                    <td colspan="4" style="text-align: right;">Shipping</td>
+                                    <td style="text-align: right;">{result.get('order_details')['deliveryCharges']}</td>
                                 </tr>
                                 <tr class="total">
                                     <td colspan="4" style="text-align: right;">Discount</td>
@@ -1824,13 +1842,14 @@ def get_order_invoice(request, data, background_tasks):
                     </body>
                     </html>
                     """
-                # print(body)
-                background_tasks.add_task(
-                    send_email,
-                    result.get("user_details")["email"],
-                    "Invoice Report",
-                    body,
-                )
+                data["email"].append(result.get("user_details", {}).get("email"))
+                # background_tasks.add_task(
+                #     send_email,
+                #     data["email"],
+                #     "Invoice Report",
+                #     body,
+                # )
+                send_email(data["email"], "Invoice Report", body)
                 return {"message": "Email sent successfully", "status": "success"}
             else:
                 return {"message": "Unable to generate invoice", "status": "error"}

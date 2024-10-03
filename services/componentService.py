@@ -71,77 +71,64 @@ def get_component_by_slug(request, slug):
                             "input": "$field_values",
                             "as": "field_value",
                             "in": {
-                                "heading": "$$field_value.heading",
-                                "button-link": "$$field_value.button-link",
-                                "description": "$$field_value.description",
-                                "id": "$$field_value.id",
-                                "image": {
-                                    "$cond": {
-                                        "if": {
-                                            "$eq": [
-                                                {"$type": "$$field_value.image"},
-                                                "string",
-                                            ]
+                                "$arrayToObject": {
+                                    "$concatArrays": [
+                                        {
+                                            "$map": {
+                                                "input": {
+                                                    "$objectToArray": "$$field_value"
+                                                },
+                                                "as": "field_key_value",
+                                                "in": {
+                                                    "k": "$$field_key_value.k",
+                                                    "v": {
+                                                        "$cond": {
+                                                            "if": {
+                                                                "$and": [
+                                                                    {"$eq": ["$$field_key_value.k", "image"]},
+                                                                    {"$eq": [{"$type": "$$field_key_value.v"}, "string"]}
+                                                                ]
+                                                            },
+                                                            "then": "$$field_key_value.v",
+                                                            "else": "$$field_key_value.v"
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         },
-                                        "then": "$$field_value.image",
-                                        "else": None,
-                                    }
-                                },
-                                "imageUrl": {
-                                    "$cond": {
-                                        "if": {
-                                            "$eq": [
-                                                {"$type": "$$field_value.image"},
-                                                "string",
-                                            ]
-                                        },
-                                        "then": {
-                                            "$concat": [
-                                                str(request.base_url)[:-1],
-                                                "/uploads/component/",
-                                                "$$field_value.image",
-                                            ]
-                                        },
-                                        "else": None,
-                                    }
-                                },
-                                "imageUrl100": {
-                                    "$cond": {
-                                        "if": {
-                                            "$eq": [
-                                                {"$type": "$$field_value.image"},
-                                                "string",
-                                            ]
-                                        },
-                                        "then": {
-                                            "$concat": [
-                                                str(request.base_url)[:-1],
-                                                "/uploads/component/100/",
-                                                "$$field_value.image",
-                                            ]
-                                        },
-                                        "else": None,
-                                    }
-                                },
-                                "imageUrl300": {
-                                    "$cond": {
-                                        "if": {
-                                            "$eq": [
-                                                {"$type": "$$field_value.image"},
-                                                "string",
-                                            ]
-                                        },
-                                        "then": {
-                                            "$concat": [
-                                                str(request.base_url)[:-1],
-                                                "/uploads/component/300/",
-                                                "$$field_value.image",
-                                            ]
-                                        },
-                                        "else": None,
-                                    }
-                                },
-                            },
+                                        # Add dynamic image URLs only if 'image' exists as string
+                                        {
+                                            "$cond": {
+                                                "if": {"$eq": [{"$type": "$$field_value.image"}, "string"]},
+                                                "then": [
+                                                    {"k": "imageUrl", "v": {
+                                                        "$concat": [
+                                                            str(request.base_url)[:-1],
+                                                            "/uploads/component/",
+                                                            "$$field_value.image"
+                                                        ]
+                                                    }},
+                                                    {"k": "imageUrl100", "v": {
+                                                        "$concat": [
+                                                            str(request.base_url)[:-1],
+                                                            "/uploads/component/100/",
+                                                            "$$field_value.image"
+                                                        ]
+                                                    }},
+                                                    {"k": "imageUrl300", "v": {
+                                                        "$concat": [
+                                                            str(request.base_url)[:-1],
+                                                            "/uploads/component/300/",
+                                                            "$$field_value.image"
+                                                        ]
+                                                    }}
+                                                ],
+                                                "else": []
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
                         }
                     },
                     "description": 1,
@@ -152,8 +139,9 @@ def get_component_by_slug(request, slug):
                     "updated_at": 1,
                     "updated_by": 1,
                 }
-            },
+            }
         ]
+
 
         result = list(collection.aggregate(pipeline))
         return {"data": result, "status": "success"}
