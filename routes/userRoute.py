@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, Request
+from fastapi import APIRouter, Depends, Body, Request, UploadFile, File
 import services.userService as userService
 from Models.User import (
     UserModel,
@@ -6,10 +6,15 @@ from Models.User import (
     UserModelAddressUpdate,
     UserModelBankDetailsUpdate,
     Token,
-    UserModelAddressUpdateById
+    UserModelAddressUpdateById,
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from services.common import convert_oid_to_str
+from typing import Optional
+from os import getcwd
+import os
+import uuid
+from services.common import resize_image
 
 router = APIRouter()
 
@@ -30,10 +35,10 @@ def get_user_by_name(user_name: str):
     return userService.get_user_by_name(user_name)
 
 
-@router.get("/get-users-by-id/", tags=["USER MANAGEMENT"])
-def get_user_by_token(token: str = Depends(userService.get_current_user)):
+@router.get("/get-users-by-id", tags=["USER MANAGEMENT"])
+def get_user_by_token(request: Request, token: str = Depends(userService.get_current_user)):
     if "_id" in token:
-        return userService.get_user_by_id(str(token["_id"]))
+        return userService.get_user_by_id(request, str(token["_id"]))
     else:
         return {"message": "Please Login First", "status": "error"}
 
@@ -43,9 +48,33 @@ def get_user_by_id(user_id: str):
     return userService.get_user_by_id(user_id)
 
 
-@router.put("/users/{user_id}", tags=["USER MANAGEMENT"])
-def update_user(user_id: str, user_data: UserModelUpdate = Body(...)):
-    return userService.update(user_id, user_data)
+@router.put("/users", tags=["USER MANAGEMENT"])
+async def update_user(
+    user_data: UserModelUpdate = Body(...),
+    profile_image: Optional[UploadFile] = File(None),
+    token: str = Depends(userService.get_current_user),
+):
+    try:
+        if "_id" in token:
+            print(user_data)
+            if profile_image is not None and profile_image != "":
+                PATH_FILES = getcwd() + "/uploads/user/"
+                os.makedirs(PATH_FILES, exist_ok=True)
+                filename = (
+                    f"{uuid.uuid1()}-{os.path.splitext(profile_image.filename)[0]}"
+                )
+                mainFileName = filename + os.path.splitext(profile_image.filename)[1]
+                with open(PATH_FILES + mainFileName, "wb") as myfile:
+                    content = await profile_image.read()
+                    myfile.write(content)
+                    myfile.close()
+                resize_image(filename, mainFileName, PATH_FILES)
+                user_data.profile_image = filename + ".webp"
+            return userService.update(str(token["_id"]), user_data)
+        else:
+            return {"message": "Please Login First", "status": "error"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.delete("/users/{user_id}", tags=["USER MANAGEMENT"])
@@ -106,7 +135,6 @@ def login_user_details(token: str = Depends(userService.get_current_user)):
 #     return userService.update_address(user_id, data)
 
 
-
 @router.put("/users/update-user-address/", tags=["USER ADDRESS MANAGEMENT"])
 def update_address(
     token: str = Depends(userService.get_current_user),
@@ -116,15 +144,20 @@ def update_address(
         return userService.update_address(str(token["_id"]), str(token["email"]), data)
     else:
         return {"message": "Please Login First", "status": "error"}
-    
+
+
 # ADDRESS SECTION START
 @router.put("/users/update-address-using-id/", tags=["USER ADDRESS MANAGEMENT"])
-def update_address_using_id(token: str = Depends(userService.get_current_user), data: UserModelAddressUpdateById = Body(...)):
+def update_address_using_id(
+    token: str = Depends(userService.get_current_user),
+    data: UserModelAddressUpdateById = Body(...),
+):
     if "_id" in token:
-        return userService.update_address_using_id(str(token["_id"]),str(token["email"]), data)
+        return userService.update_address_using_id(
+            str(token["_id"]), str(token["email"]), data
+        )
     else:
         return {"message": "Please Login First", "status": "error"}
-
 
 
 @router.delete(
@@ -194,6 +227,11 @@ def change_bank_status(user_id: str, bank_id: int):
 def forget_password_link_send(user_email: str, request: Request):
     return userService.forget_password_link_send(user_email, request)
 
+
 @router.post("/forgot-password/verify-otp", tags=["FORGET PASSWORD MANAGEMNT"])
-def reset_password_with_otp(user_email: str, password: str, confirm_password: str, otp: int):
-    return userService.reset_password_with_otp(user_email, password, confirm_password, otp)
+def reset_password_with_otp(
+    user_email: str, password: str, confirm_password: str, otp: int
+):
+    return userService.reset_password_with_otp(
+        user_email, password, confirm_password, otp
+    )

@@ -36,15 +36,9 @@ class UserModelUpdate(BaseModel):
     name: Optional[str] = None
     mobile: Optional[str] = None
     dob: Optional[str] = None
-    gender: Optional[int] = None
-    profile_image: Optional[str] = None
-    address: Optional[List[str]] = None
-    bank_details: Optional[List[str]] = None
-    user_type: Optional[int] = None
-    user_permission: Optional[List[str]] = None
+    profile_image : Optional[str] = None
+    gender: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[int] = None
-    deleted_at: Optional[str] = None
     updated_at: Optional[str] = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     updated_by: Optional[str] = None
 

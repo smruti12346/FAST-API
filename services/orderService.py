@@ -550,7 +550,7 @@ def order_create(customer_details, country_code, product_details):
             orders.append(data)
 
         # Insert Orders and Return Payment Link
-        collection.insert_many(orders)
+        inserted_result = collection.insert_many(orders)
 
         payment_id = order_models_dict_array[0]["payment_id"]
 
@@ -649,6 +649,15 @@ def order_create(customer_details, country_code, product_details):
             }
         }
         collection.update_many(filter, update)
+
+        # email integration for invoice  start
+        for order_id in inserted_result.inserted_ids:
+            data = {
+                "email": ["prabhucharan.thetechnovate@gmail.com"],
+                "order_id": str(order_id),
+            }
+            get_order_invoice(Request, data, BackgroundTasks)
+        # email integration for invoice  start
         return {
             "message": "Order placed successfully",
             "payment_id": payment_id,
@@ -1849,6 +1858,7 @@ def get_order_invoice(request, data, background_tasks):
                 #     "Invoice Report",
                 #     body,
                 # )
+                print("Email sent to", data["email"])
                 send_email(data["email"], "Invoice Report", body)
                 return {"message": "Email sent successfully", "status": "success"}
             else:
