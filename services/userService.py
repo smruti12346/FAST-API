@@ -232,7 +232,6 @@ def update(id, data):
         if data.get('profile_image') is None:
             del data['profile_image']
 
-        print(data)
         updated_data = merge_objects(data, get_user_by_id(Request, id)["data"][0])
         result = collection.update_one({"_id": ObjectId(id)}, {"$set": updated_data})
         if result.modified_count == 1:

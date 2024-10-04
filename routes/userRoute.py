@@ -36,7 +36,9 @@ def get_user_by_name(user_name: str):
 
 
 @router.get("/get-users-by-id", tags=["USER MANAGEMENT"])
-def get_user_by_token(request: Request, token: str = Depends(userService.get_current_user)):
+def get_user_by_token(
+    request: Request, token: str = Depends(userService.get_current_user)
+):
     if "_id" in token:
         return userService.get_user_by_id(request, str(token["_id"]))
     else:
@@ -56,7 +58,6 @@ async def update_user(
 ):
     try:
         if "_id" in token:
-            print(user_data)
             if profile_image is not None and profile_image != "":
                 PATH_FILES = getcwd() + "/uploads/user/"
                 os.makedirs(PATH_FILES, exist_ok=True)
