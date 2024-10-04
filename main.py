@@ -30,6 +30,7 @@ app.add_middleware(
         "https://zvu.shoppingxperts.com",
         "https://riverranch-api.shoppingxperts.com",
         "https://thera-posture.com",
+        "https://shoppingxpertsadmin-2va4z9vsk-digitalvates-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
