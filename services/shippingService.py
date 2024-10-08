@@ -290,7 +290,7 @@ def validate_address(street1, city, state, zip, country, email, phone):
         if shipping_company_name == "self":
             return {
                 "data": {
-                    "verifications": {"delivery" : {"success" : True}},
+                    "verifications": {"delivery": {"success": True}},
                     "shipping_company_name": "self",
                 },
                 "status": "success",
@@ -472,29 +472,108 @@ def track_order_by_id(trk_id):
         return {"message": str(e), "status": "error"}
 
 
-def create_return_request(buyer_address, from_address, parcel_id):
+# def create_return_request(buyer_address, from_address, parcel_id):
+#     try:
+#         AdminShipingDetails = view_by_status(1)
+#         if (
+#             AdminShipingDetails["status"] == "success"
+#             and len(AdminShipingDetails["data"]) > 0
+#         ):
+#             api_key = AdminShipingDetails["data"][0]["api_key"]
+#         else:
+#             return {"message": "Shipping address not set", "status": "error"}
+
+#         client = easypost.EasyPostClient(api_key)
+#         shipment = client.shipment.create(
+#             to_address={"id": buyer_address},
+#             from_address={"id": from_address},
+#             parcel={"id": parcel_id},
+#             is_return=True,
+#         )
+
+
+#         return {
+#             "message": json.loads(json.dumps(shipment.to_dict())),
+#             "status": "success",
+#         }
+#     except Exception as e:
+#         return {"message": str(e), "status": "error"}
+def create_return_request(request, order_id):
     try:
-        AdminShipingDetails = view_by_status(1)
-        if (
-            AdminShipingDetails["status"] == "success"
-            and len(AdminShipingDetails["data"]) > 0
-        ):
-            api_key = AdminShipingDetails["data"][0]["api_key"]
+
+        orderData = orderService.get_order_details_by_id(request, order_id)
+        if orderData["status"] == "success" and len(orderData["data"]) > 0:
+            shippingData = orderData["data"][0]["shippingDetails"]
+
+            if (
+                shippingData["status"] == "success"
+                and shippingData["data"]["shipping_company_name"]
+                and shippingData["data"]["shipping_company_name"] == "self"
+            ):
+                AdminShipingDetails = view_by_status(1)
+                if (
+                    AdminShipingDetails["status"] == "success"
+                    and len(AdminShipingDetails["data"]) > 0
+                ):
+                    address_id = AdminShipingDetails["data"][0]["address_id"]
+                    pipeline = [
+                        { "$match": { "user_type":1, "address.id": address_id } },  # Match documents with address id = 1
+                        { "$project": { 
+                            "address": { "$filter": {
+                                "input": "$address",
+                                "as": "addr",
+                                "cond": { "$eq": ["$$addr.id", address_id] }  # Filter for address with id = 1
+                            }}
+                        }}
+                    ]
+                    result = list(db['user'].aggregate(pipeline))
+                    if result:
+                        from_address = result
+                    else:
+                        return {"message": "No admin address found", "status": "error"}
+                else:
+                    return {"message": "Shipping address not set", "status": "error"}              
+                return {
+                    "message": {
+                        'buyer_address': orderData["data"][0]["address"],
+                        'from_address': from_address,
+                    },
+                    "status": "success",
+                }
+
+            if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
+                buyer_address = shippingData["data"]["buyer_address"]["id"]
+                from_address = shippingData["data"]["from_address"]["id"]
+                parcel_id = shippingData["data"]["parcel"]["id"]
+
+                AdminShipingDetails = view_by_status(1)
+                if (
+                    AdminShipingDetails["status"] == "success"
+                    and len(AdminShipingDetails["data"]) > 0
+                ):
+                    api_key = AdminShipingDetails["data"][0]["api_key"]
+                else:
+                    return {"message": "Shipping address not set", "status": "error"}
+
+                client = easypost.EasyPostClient(api_key)
+                shipment = client.shipment.create(
+                    to_address={"id": buyer_address},
+                    from_address={"id": from_address},
+                    parcel={"id": parcel_id},
+                    is_return=True,
+                )
+
+                return {
+                    "message": json.loads(json.dumps(shipment.to_dict())),
+                    "status": "success",
+                }
+            else:
+                return {
+                    "message": "Shipping details not found for this order",
+                    "status": "error",
+                }
         else:
-            return {"message": "Shipping address not set", "status": "error"}
-
-        client = easypost.EasyPostClient(api_key)
-        shipment = client.shipment.create(
-            to_address={"id": buyer_address},
-            from_address={"id": from_address},
-            parcel={"id": parcel_id},
-            is_return=True,
-        )
-
-        return {
-            "message": json.loads(json.dumps(shipment.to_dict())),
-            "status": "success",
-        }
+            return {"message": "Order not found", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

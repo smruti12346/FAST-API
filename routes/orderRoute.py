@@ -4,7 +4,7 @@ import services.cartService as cartService
 import services.userService as userService
 import services.orderService as orderService
 
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -157,8 +157,8 @@ def get_orders(request: Request):
 
 
 @router.get("/get-all-orders/{page}", tags=["ORDER REPORTS"])
-def get_all_orders(request: Request, page: int, show_page: int):
-    return orderService.get_all_orders(request, page, show_page)
+def get_all_orders(request: Request, page: int, show_page: int, search_query: Optional[str] = None):
+    return orderService.get_all_orders(request, page, show_page, search_query)
 
 
 @router.get("/get-orders-by-counts/{page}", tags=["ORDER REPORTS"])

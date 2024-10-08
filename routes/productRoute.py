@@ -72,8 +72,8 @@ async def create_product(
 
 
 @router.get("/all-products/{page}", tags=["PRODUCT MANAGEMENT"])
-def get_all_product(request: Request, page: int, show_page: int):
-    return productService.get_all_product(request, page, show_page)
+def get_all_product(request: Request, page: int, show_page: int, search_query: Optional[str] = None):
+    return productService.get_all_product(request, page, show_page, search_query)
 
 
 @router.put("/products/{product_id}", tags=["PRODUCT MANAGEMENT"])

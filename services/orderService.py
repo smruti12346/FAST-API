@@ -994,11 +994,25 @@ def get_orders(request):
         return {"message": str(e), "status": "error"}
 
 
-def get_all_orders(request, page, show_page):
+def get_all_orders(request, page, show_page, search_query):
     try:
+        pipeline = [{"$match": {"deleted_at": None}}]
+        if search_query:
+            search_condition = {
+                "$or": [
+                    {"payment_id": {"$regex": search_query, "$options": "i"}},
+                    {"product_id": {"$regex": search_query, "$options": "i"}},
+                ]
+            }
+            try:
+                search_condition["$or"].append({"_id": ObjectId(search_query)})
+            except Exception:
+                pass
+            pipeline.append({"$match": search_condition})
+
+
         execution_start_time = time.time()
-        pipeline = [
-            {"$match": {}},
+        pipeline += [
             {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
             {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
             {
@@ -1498,6 +1512,56 @@ def update_order_status(order_id, status, customer_id, user_type):
             if db_document == None:
                 return {"message": "Please Login First", "status": "error"}
 
+        if status == 8:
+            shippingDetails = shippingService.create_return_request(Request, order_id)
+            if shippingDetails["status"] == "success":
+                result = collection.update_one(
+                    {"_id": ObjectId(order_id)},
+                    {
+                        "$set": {
+                            "status": status,
+                            "return_shipping_details": shippingDetails,
+                            "updated_at": str(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ),
+                        }
+                    },
+                )
+                if result.modified_count == 1:
+                    return {
+                        "message": "Return request accepted successfully",
+                        "status": "success",
+                    }
+                else:
+                    return {"message": "failed update status", "status": "error"}
+            else:
+                return shippingDetails
+
+        if status == 10:
+            paymentDetails = payment_refund_process(Request, order_id)
+            if paymentDetails["status"] == "success":
+                result = collection.update_one(
+                    {"_id": ObjectId(order_id)},
+                    {
+                        "$set": {
+                            "status": status,
+                            "payment_refund_details": paymentDetails,
+                            "updated_at": str(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ),
+                        }
+                    },
+                )
+                if result.modified_count == 1:
+                    return {
+                        "message": "Payment refund process completed",
+                        "status": "success",
+                    }
+                else:
+                    return {"message": "failed update status", "status": "error"}
+            else:
+                return paymentDetails
+
         result = collection.update_one(
             {"_id": ObjectId(order_id)},
             {
@@ -1991,3 +2055,41 @@ def create_order_return_request(request, order_id):
             return {"message": "Order details not found", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+def payment_refund_process(request, order_id):
+    orderData = get_order_details_by_id(request, order_id)
+    if (
+        orderData["status"] == "success"
+        and len(orderData["data"]) > 0
+        and orderData["data"][0]["status"] == 8
+    ):
+        payment_id = orderData["data"][0]["payment_id"]
+        reference_id = orderData["data"][0]["order_details"]["purchase_units"][
+            "reference_id"
+        ]
+
+        active_payment_details = paymentService.view_by_getway_name(
+            orderData["data"][0]["getway_name"]
+        )
+
+        if (
+            active_payment_details["status"] == "success"
+            and len(active_payment_details["data"]) > 0
+        ):
+            client_id = active_payment_details["data"][0]["api_key"]
+            secret_key = active_payment_details["data"][0]["password"]
+
+        payment_refund_details = paymentService.refund_paypal_payment(
+            payment_id, reference_id, client_id, secret_key
+        )
+        if payment_refund_details["status"] == "error":
+            return {
+                "message": payment_refund_details["response"]["message"],
+                "status": "error",
+            }
+        else:
+            return payment_refund_details
+
+    else:
+        return {"message": "Order details not found", "status": "error"}

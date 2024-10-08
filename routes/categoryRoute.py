@@ -44,8 +44,10 @@ def get_all(request: Request):
 
 
 @router.get("/all-category/{page}", tags=["CATEGORY MANAGEMENT"])
-def get_all_category(request: Request, page: int, show_page: int):
-    return categoryService.get_all_category(request, page, show_page)
+def get_all_category(
+    request: Request, page: int, show_page: int, search_query: Optional[str] = None
+):
+    return categoryService.get_all_category(request, page, show_page, search_query)
 
 
 @router.get("/sub-category/{parent_id}", tags=["CATEGORY MANAGEMENT"])

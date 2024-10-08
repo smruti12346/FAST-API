@@ -168,10 +168,25 @@ def get_all(request):
         return {"message": str(e), "status": "error"}
 
 
-def get_all_product(request, page, show_page):
+def get_all_product(request, page, show_page, search_query):
     try:
-        pipeline = [
-            {"$match": {"deleted_at": None}},
+        pipeline = [{"$match": {"deleted_at": None}}]
+        if search_query:
+            search_condition = {
+                "$or": [
+                    {"name": {"$regex": search_query, "$options": "i"}},
+                    {"slug": {"$regex": search_query, "$options": "i"}},
+                    {"product_sku": {"$regex": search_query, "$options": "i"}},
+                    {"description": {"$regex": search_query, "$options": "i"}},
+                ]
+            }
+            try:
+                search_condition["$or"].append({"_id": ObjectId(search_query)})
+            except Exception:
+                pass
+            pipeline.append({"$match": search_condition})
+
+        pipeline += [
             {
                 "$lookup": {
                     "from": "category",
@@ -311,7 +326,6 @@ def search_products(request, query):
                             "$cover_image",
                         ]
                     },
-                    
                 }
             },
             {
