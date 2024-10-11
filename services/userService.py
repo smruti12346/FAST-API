@@ -116,6 +116,18 @@ def get_user_by_name(user_name):
         return {"message": str(e), "status": "error"}
 
 
+def get_user_by_user_type(user_type):
+    try:
+        result = collection.find({"user_type": user_type})
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def get_user_by_id(request, id):
     try:
         pipeline = [

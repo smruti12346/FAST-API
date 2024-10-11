@@ -519,6 +519,9 @@ def order_create(customer_details, country_code, product_details):
         order_models_dict_array = [order.dict() for order in product_details]
         if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
+        
+        AdminShipingDetails = shippingService.view_by_status(1)
+        adminEmail = AdminShipingDetails['data'][0]['addressDetails']['email']
 
         address = get_address_by_id(str(customer_details["_id"]))
         if address["status"] == "success":
@@ -653,7 +656,7 @@ def order_create(customer_details, country_code, product_details):
         # email integration for invoice  start
         for order_id in inserted_result.inserted_ids:
             data = {
-                "email": ["prabhucharan.thetechnovate@gmail.com"],
+                "email": [adminEmail],
                 "order_id": str(order_id),
             }
             get_order_invoice(Request, data, BackgroundTasks)
@@ -669,7 +672,6 @@ def order_create(customer_details, country_code, product_details):
 
 
 def guest_order_create(product_details):
-    from services.userService import get_address_by_id
     from passlib.context import CryptContext
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -683,6 +685,9 @@ def guest_order_create(product_details):
         user_details = userService.check_email_exist(
             order_models_dict_array[0]["address"]["email"]
         )
+
+        AdminShipingDetails = shippingService.view_by_status(1)
+        adminEmail = AdminShipingDetails['data'][0]['addressDetails']['email']
 
         address = order_models_dict_array[0]["address"]
         address["primary_status"] = 1
@@ -838,7 +843,7 @@ def guest_order_create(product_details):
         # email integration for invoice  start
         for order_id in inserted_result.inserted_ids:
             data = {
-                "email": ["prabhucharan.thetechnovate@gmail.com"],
+                "email": [adminEmail],
                 "order_id": str(order_id),
             }
             get_order_invoice(Request, data, BackgroundTasks)
