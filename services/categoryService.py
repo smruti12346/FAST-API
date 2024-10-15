@@ -516,11 +516,11 @@ def get_category_wise_product(
             )
 
         if sort_by == "date":
-            query.append({"$sort": {"created_at": -1}})
+            query.append({"$sort": {"created_at": -1, "product_id": 1}})
         elif sort_by == "high_selling":
-            query.append({"$sort": {"sold_quantity": -1}})
+            query.append({"$sort": {"sold_quantity": -1, "product_id": 1}})
         elif sort_by == "sort_asc":
-            query.append({"$sort": {"name": -1}})
+            query.append({"$sort": {"name": -1, "product_id": 1}})
 
         documents = paginate(db["product"], query, page, show_page)
         query = [

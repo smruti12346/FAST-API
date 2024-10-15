@@ -4,3 +4,4 @@ my_client = MongoClient(uri)
 # db = my_client["zvu_ecom_db"]
 db = my_client["riverranch_ecom_db"]
 # db = my_client["ecommerce_project"]
+# db = my_client["thera_posture_ecom_db"]
