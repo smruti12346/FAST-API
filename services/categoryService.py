@@ -446,6 +446,7 @@ def get_category_wise_product(
         result = list(collection.aggregate(pipeline))
 
         mainArr = [doc["id"] for doc in result] if result else [category_id]
+        mainArr.append(category_id)
 
         query = [
             {"$match": {"category_id": {"$in": mainArr}}},
