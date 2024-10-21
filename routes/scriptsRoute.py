@@ -22,3 +22,7 @@ def get_all_category_arr_hirarchy():
 @router.post("/convert-to-valid-slug/")
 def convert_to_valid_slug():
     return scripts.convert_to_valid_slug()
+
+@router.post("/fix-duplicate-slugs/")
+def fix_duplicate_slugs():
+    return scripts.fix_duplicate_slugs()

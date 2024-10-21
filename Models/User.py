@@ -51,6 +51,8 @@ class UserModelUpdate(BaseModel):
 
 class UserModelAddressUpdate(BaseModel):
     full_name: str 
+    last_name: Optional[str] = None 
+    company_name: Optional[str] = None 
     phone_number: str
     country_code: str
     state_code: str

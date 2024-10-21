@@ -35,6 +35,8 @@ class AddressDetails(BaseModel):
     city_name: str
     pin_number: str
     full_name: str
+    last_name: Optional[str] = None 
+    company_name: Optional[str] = None 
     phone_number: str
     email: str
     roadName_area_colony: str

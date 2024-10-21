@@ -3,7 +3,7 @@ from db import db
 from datetime import datetime, timedelta
 import services.categoryService as categoryService
 import re
-
+from bson import ObjectId
 
 def random_date(start, end):
     start_u = start.timestamp()
@@ -338,3 +338,56 @@ def convert_to_valid_slug():
             collection.update_one({"_id": doc["_id"]}, {"$set": {"slug": updated_slug}})
 
     print("Slugs updated successfully.")
+
+
+def generate_unique_slug(slug, existing_slugs):
+    """
+    Generates a unique slug by appending numbers to it.
+    """
+    if slug not in existing_slugs:
+        return slug
+    
+    # Find the highest slug-number pattern like slug-1, slug-2, etc.
+    max_number = 0
+    slug_pattern = re.compile(f"^{re.escape(slug)}-(\\d+)$")
+    for s in existing_slugs:
+        match = slug_pattern.match(s)
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    
+    # Append the next number
+    new_slug = f"{slug}-{max_number + 1}"
+    return new_slug
+
+
+def fix_duplicate_slugs():
+    try:
+        collection = db['product']
+
+        # Find all documents and store slugs
+        all_docs = list(collection.find({}, {"slug": 1}))
+        slug_count = {}
+        
+        for doc in all_docs:
+            slug = doc['slug']
+            if slug in slug_count:
+                slug_count[slug].append(doc['_id'])
+            else:
+                slug_count[slug] = [doc['_id']]
+        
+        # Loop through each slug that has more than 1 occurrence
+        for slug, ids in slug_count.items():
+            if len(ids) > 1:
+                # Find all existing slugs to avoid conflicts
+                existing_slugs = [doc['slug'] for doc in collection.find({"slug": {"$regex": f"^{slug}-?"}})]
+                
+                # Skip the first one (keep the original slug) and rename others
+                for i, doc_id in enumerate(ids[1:], start=1):
+                    new_slug = generate_unique_slug(slug, existing_slugs)
+                    collection.update_one({"_id": ObjectId(doc_id)}, {"$set": {"slug": new_slug}})
+                    existing_slugs.append(new_slug)
+
+        return {"message": "Duplicate slugs fixed successfully"}
+    
+    except Exception as e:
+        print(str(e))
