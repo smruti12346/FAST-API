@@ -566,7 +566,7 @@ def order_create(customer_details, country_code, product_details):
             filter = {"payment_id": payment_id}
             update = {
                 "$set": {
-                    "status": 3,
+                    # "status": 3,
                     "shippingDetails": shippingDetails,
                     "order_tracking_id": shipping_id,
                 }
@@ -577,7 +577,7 @@ def order_create(customer_details, country_code, product_details):
             filter = {"payment_id": payment_id}
             update = {
                 "$set": {
-                    "status": 2,
+                    "status": 3,
                     "shippingFailDetails": shippingDetails,
                     "order_tracking_id": shipping_id,
                 }
@@ -645,13 +645,15 @@ def order_create(customer_details, country_code, product_details):
         #     )
         # # update quantity and varient after check quantity end
 
-        filter = {"payment_id": payment_id}
-        update = {
-            "$set": {
-                "status": 5,
-            }
-        }
-        collection.update_many(filter, update)
+        # # not required =======================
+        # filter = {"payment_id": payment_id}
+        # update = {
+        #     "$set": {
+        #         "status": 5,
+        #     }
+        # }
+        # collection.update_many(filter, update)
+        # # not required =======================
 
         # email integration for invoice  start
         for order_id in inserted_result.inserted_ids:
@@ -747,7 +749,7 @@ def guest_order_create(product_details):
             filter = {"payment_id": payment_id}
             update = {
                 "$set": {
-                    "status": 3,
+                    # "status": 3,
                     "shippingDetails": shippingDetails,
                     "order_tracking_id": shipping_id,
                 }
@@ -758,7 +760,7 @@ def guest_order_create(product_details):
             filter = {"payment_id": payment_id}
             update = {
                 "$set": {
-                    "status": 2,
+                    "status": 3,
                     "shippingFailDetails": shippingDetails,
                     "order_tracking_id": shipping_id,
                 }
@@ -824,7 +826,7 @@ def guest_order_create(product_details):
                     # },
                     #  # impliment quantity end
                     "$inc": {
-                        "sold_quantity": +existing_order_data["order_details"][
+                        "sold_quantity": + existing_order_data["order_details"][
                             "total_quantity"
                         ]
                     },
@@ -832,13 +834,16 @@ def guest_order_create(product_details):
             )
         # update quantity and varient after check quantity end
 
-        filter = {"payment_id": payment_id}
-        update = {
-            "$set": {
-                "status": 5,
-            }
-        }
-        collection.update_many(filter, update)
+
+        # # not required =======================
+        # filter = {"payment_id": payment_id}
+        # update = {
+        #     "$set": {
+        #         "status": 5,
+        #     }
+        # }
+        # collection.update_many(filter, update)
+        # # not required =======================
 
         # email integration for invoice  start
         for order_id in inserted_result.inserted_ids:

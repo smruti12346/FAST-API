@@ -14,7 +14,7 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
             }
         )
 
-        pending_order_count = db["order"].count_documents(
+        order_placed_count = db["order"].count_documents(
             {
                 "$and": [
                     {"status": 1},
@@ -23,7 +23,7 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
             }
         )
 
-        placed_order_count = db["order"].count_documents(
+        order_shipped = db["order"].count_documents(
             {
                 "$and": [
                     {"status": 5},
@@ -43,8 +43,8 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
         return {
             "data": {
                 "user_count": user_count,
-                "pending_order_count": pending_order_count,
-                "placed_order_count": placed_order_count,
+                "order_placed_count": order_placed_count,
+                "order_shipped": order_shipped,
                 "return_request_count": return_request_count,
             },
             "status": "success",
