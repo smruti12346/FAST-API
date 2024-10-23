@@ -57,92 +57,93 @@ def get_component(request, page, show_page):
 def get_component_by_slug(request, slug):
     try:
         pipeline = [
-            {"$match": {"slug": slug, "deleted_at": None}},
-            {"$sort": {"created_at": 1}},
-            {
-                "$project": {
-                    "_id": {"$toString": "$_id"},
-                    "deleted_at": 1,
-                    "name": 1,
-                    "slug": 1,
-                    "fields": 1,
-                    "field_values": {
-                        "$map": {
-                            "input": "$field_values",
-                            "as": "field_value",
-                            "in": {
-                                "$arrayToObject": {
-                                    "$concatArrays": [
-                                        {
-                                            "$map": {
-                                                "input": {
-                                                    "$objectToArray": "$$field_value"
-                                                },
-                                                "as": "field_key_value",
-                                                "in": {
-                                                    "k": "$$field_key_value.k",
-                                                    "v": {
-                                                        "$cond": {
-                                                            "if": {
-                                                                "$and": [
-                                                                    {"$eq": ["$$field_key_value.k", "image"]},
-                                                                    {"$eq": [{"$type": "$$field_key_value.v"}, "string"]}
-                                                                ]
-                                                            },
-                                                            "then": "$$field_key_value.v",
-                                                            "else": "$$field_key_value.v"
-                                                        }
-                                                    }
+    {"$match": {"slug": slug, "deleted_at": None}},
+    {"$sort": {"created_at": 1}},
+    {
+        "$project": {
+            "_id": {"$toString": "$_id"},
+            "deleted_at": 1,
+            "name": 1,
+            "slug": 1,
+            "fields": 1,
+            "field_values": {
+                "$map": {
+                    "input": "$field_values",
+                    "as": "field_value",
+                    "in": {
+                        "$arrayToObject": {
+                            "$concatArrays": [
+                                {
+                                    "$map": {
+                                        "input": {
+                                            "$objectToArray": "$$field_value"
+                                        },
+                                        "as": "field_key_value",
+                                        "in": {
+                                            "k": "$$field_key_value.k",
+                                            "v": {
+                                                "$cond": {
+                                                    "if": {
+                                                        "$and": [
+                                                            {"$eq": ["$$field_key_value.k", "image"]},
+                                                            {"$eq": [{"$type": "$$field_key_value.v"}, "string"]}
+                                                        ]
+                                                    },
+                                                    "then": "$$field_key_value.v",
+                                                    "else": "$$field_key_value.v"
                                                 }
                                             }
-                                        },
-                                        # Add dynamic image URLs only if 'image' exists as string
-                                        {
-                                            "$cond": {
-                                                "if": {"$eq": [{"$type": "$$field_value.image"}, "string"]},
-                                                "then": [
-                                                    {"k": "imageUrl", "v": {
-                                                        "$concat": [
-                                                            str(request.base_url)[:-1],
-                                                            "/uploads/component/",
-                                                            "$$field_value.image"
-                                                        ]
-                                                    }},
-                                                    {"k": "imageUrl100", "v": {
-                                                        "$concat": [
-                                                            str(request.base_url)[:-1],
-                                                            "/uploads/component/100/",
-                                                            "$$field_value.image"
-                                                        ]
-                                                    }},
-                                                    {"k": "imageUrl300", "v": {
-                                                        "$concat": [
-                                                            str(request.base_url)[:-1],
-                                                            "/uploads/component/300/",
-                                                            "$$field_value.image"
-                                                        ]
-                                                    }}
-                                                ],
-                                                "else": []
-                                            }
                                         }
-                                    ]
+                                    }
+                                },
+                                # Add dynamic image URLs only if 'image' exists as string
+                                {
+                                    "$cond": {
+                                        "if": {"$eq": [{"$type": "$$field_value.image"}, "string"]},
+                                        "then": [
+                                            {"k": "imageUrl", "v": {
+                                                "$concat": [
+                                                    str(request.base_url)[:-1],
+                                                    "/uploads/component/",
+                                                    "$$field_value.image"
+                                                ]
+                                            }},
+                                            {"k": "imageUrl100", "v": {
+                                                "$concat": [
+                                                    str(request.base_url)[:-1],
+                                                    "/uploads/component/100/",
+                                                    "$$field_value.image"
+                                                ]
+                                            }},
+                                            {"k": "imageUrl300", "v": {
+                                                "$concat": [
+                                                    str(request.base_url)[:-1],
+                                                    "/uploads/component/300/",
+                                                    "$$field_value.image"
+                                                ]
+                                            }}
+                                        ],
+                                        "else": []
+                                    }
                                 }
-                            }
+                            ]
                         }
-                    },
-                    "description": 1,
-                    "seo": 1,
-                    "status": 1,
-                    "created_at": 1,
-                    "created_by": 1,
-                    "updated_at": 1,
-                    "updated_by": 1,
+                    }
                 }
-            }
-        ]
-
-
+            },
+            "description": 1,
+            "seo": 1,
+            "status": 1,
+            "created_at": 1,
+            "created_by": 1,
+            "updated_at": 1,
+            "updated_by": 1,
+            "url": str(request.base_url)[:-1] + "/uploads/component/",
+            "url100": str(request.base_url)[:-1] + "/uploads/component/100/",
+            "url300": str(request.base_url)[:-1] + "/uploads/component/300/",
+        }
+    }
+]
         result = list(collection.aggregate(pipeline))
         return {"data": result, "status": "success"}
     except Exception as e:
