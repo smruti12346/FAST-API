@@ -289,6 +289,118 @@ def get_all_product(request, page, show_page, search_query):
         return {"message": str(e), "status": "error"}
 
 
+def get_products_slugs_wise(request, slugs):
+    try:
+        import ast
+        pipeline = [
+            {
+                "$match": {
+                    "deleted_at": None,
+                    "slug": {"$in": ast.literal_eval(slugs)},
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_id",
+                    "foreignField": "id",
+                    "as": "category",
+                }
+            },
+            {
+                "$addFields": {
+                    "category": {"$arrayElemAt": ["$category", 0]},
+                    "_id": {"$toString": "$_id"},
+                }
+            },
+            {
+                "$addFields": {
+                    "category_name": "$category.name",
+                    "category_slug": "$category.slug",
+                    "category_parent_id_arr": "$category.parent_id_arr",
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/100/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/products/300/",
+                            "$cover_image",
+                        ]
+                    },
+                    "imageArrUrl": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/",
+                                    "$$image",
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl100": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/100/",
+                                    "$$image",
+                                ]
+                            },
+                        }
+                    },
+                    "imageArrUrl300": {
+                        "$map": {
+                            "input": "$images",
+                            "as": "image",
+                            "in": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/products/300/",
+                                    "$$image",
+                                ]
+                            },
+                        }
+                    },
+                }
+            },
+            {"$unset": "category"},
+            {
+                "$lookup": {
+                    "from": "category",
+                    "localField": "category_parent_id_arr",
+                    "foreignField": "id",
+                    "as": "parent_categories",
+                }
+            },
+            {"$addFields": {"parent_category_names": "$parent_categories.name"}},
+            {"$unset": "parent_categories"},
+        ]
+
+        result = list(collection.aggregate(pipeline))
+        # documents = paginate(collection, pipeline, page, show_page)
+        return {"data": result, "status": "success"}
+
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def search_products(request, query):
     try:
         # collection.create_index([("name", "text")])

@@ -39,7 +39,7 @@ class AddressDetails(BaseModel):
     company_name: Optional[str] = None 
     phone_number: str
     email: str
-    roadName_area_colony: str
+    roadName_area_colony: Optional[str] = None
     house_bulding_name: Optional[str] = None
     landmark: Optional[str] = None
 
