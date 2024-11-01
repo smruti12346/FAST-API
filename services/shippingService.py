@@ -87,6 +87,7 @@ def view(request, page, show_page):
                     "id": 1,
                     "name": 1,
                     "shipping_company_name": 1,
+                    "domain_url": 1,
                     "currency": 1,
                     "national_fix_amount": 1,
                     "charges_above_national_fix_amount": 1,
@@ -99,6 +100,7 @@ def view(request, page, show_page):
                     "admin_id": 1,
                     "password": 1,
                     "api_key": 1,
+                    "owner_id": 1,
                     "status": 1,
                     "created_at": 1,
                     "addressDetails": 1,
@@ -208,6 +210,22 @@ def view_by_status(status):
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
+
+def view_by_shipping_company_name(shipping_company_name):
+    try:
+        result = list(
+            collection.find(
+                {"shipping_company_name": shipping_company_name, "status": 1, "deleted_at": None}
+            )
+        )
+        data = []
+        for doc in result:
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        return {"data": data, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+    
 
 def view_by_getway_name(getway_name):
     try:

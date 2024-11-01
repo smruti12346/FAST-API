@@ -6,9 +6,11 @@ import json
 class ShippingModel(BaseModel):
     name: str
     shipping_company_name: str
+    domain_url: str
     user_id: str
     password: str
     api_key: str
+    owner_id: str
     currency: str
     country_code: str
     national_fix_amount: float
@@ -34,9 +36,11 @@ class ShippingModel(BaseModel):
 class ShippingUpdateModel(BaseModel):
     name: str
     shipping_company_name: str
+    domain_url: Optional[str] = None
     user_id: str
     password: str
     api_key: str
+    owner_id: Optional[str] = None
     currency: str
     country_code: str
     national_fix_amount: float
@@ -49,6 +53,26 @@ class ShippingUpdateModel(BaseModel):
     status: Optional[int] = Field(default=1)
     updated_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     updated_by: Optional[str] = None
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
+    
+
+class ShippingAddressForVeracoreModel(BaseModel):
+    Prefix: Optional[str] = None
+    FirstName: str
+    LastName: Optional[str] = None
+    Address1: str
+    City: str
+    State: str
+    PostalCode: str
+    Country: str
+    Phone: str
+    Email: str
+
     @model_validator(mode="before")
     @classmethod
     def validate_to_json(cls, value):
