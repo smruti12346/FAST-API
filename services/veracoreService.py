@@ -49,7 +49,7 @@ def login_and_get_token():
 
 
 def veracore_order_fulfill(product_id, quantity, unit_price, user_address):
-    print(user_address.Prefix)
+    # print(user_address['Prefix'])
 
     shippinggetway = shippingService.view_by_shipping_company_name("Veracore")
 
@@ -72,16 +72,16 @@ def veracore_order_fulfill(product_id, quantity, unit_price, user_address):
                 <AddOrder xmlns="http://omscom/">
                     <order>
                         <OrderedBy>
-                            <Prefix>{user_address.Prefix}</Prefix>
-                            <FirstName>{user_address.FirstName}</FirstName>
-                            <LastName>{user_address.LastName}</LastName>
-                            <Address1>{user_address.Address1}</Address1>
-                            <City>{user_address.City}</City>
-                            <State>{user_address.State}</State>
-                            <PostalCode>{user_address.PostalCode}</PostalCode>
-                            <Country>{user_address.Country}</Country>
-                            <Phone>{user_address.Phone}</Phone>
-                            <Email>{user_address.Email}</Email>
+                            <Prefix>{user_address['Prefix']}</Prefix>
+                            <FirstName>{user_address['FirstName']}</FirstName>
+                            <LastName>{user_address['LastName']}</LastName>
+                            <Address1>{user_address['Address1']}</Address1>
+                            <City>{user_address['City']}</City>
+                            <State>{user_address['State']}</State>
+                            <PostalCode>{user_address['PostalCode']}</PostalCode>
+                            <Country>{user_address['Country']}</Country>
+                            <Phone>{user_address['Phone']}</Phone>
+                            <Email>{user_address['Email']}</Email>
                         </OrderedBy>
                         <ShipTo>
                             <OrderShipTo>
@@ -146,3 +146,64 @@ def veracore_order_fulfill(product_id, quantity, unit_price, user_address):
             }
 
     return {"message": "Veracore not activate", "status": "veracore not activate"}
+
+def get_veracore_product_details(product_id):
+    try:
+        veracoredetails = login_and_get_token()
+
+        url = f"https://{veracoredetails['domain_url']}/VeraCore/Public.Api/api/GetInventory?offerIds={product_id}"
+        headers = {
+            "Accept": "application/json",
+            "Authorization": "bearer " + veracoredetails["Token"],
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return {"data": response.json()["Inventory"], "status": "success"}
+
+    except requests.exceptions.RequestException as e:
+        return {"status": "fail", "error": str(e)}
+
+
+def get_veracore_tracking_details(product_id):
+    try:
+        ShippingServiceDetails = {}
+        AdminShipingDetails = shippingService.view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            ShippingServiceDetails = AdminShipingDetails["data"][0]
+
+
+        veracoredetails = login_and_get_token()
+
+        url = f"https://{veracoredetails['domain_url']}/VeraCore/Public.Api/api/GetPackages?request.ordersIds={product_id}"
+        headers = {
+            "Accept": "application/json",
+            "Authorization": "bearer " + veracoredetails["Token"],
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        response = response.json()
+
+
+        if response["ShippingUnits"] != None:
+            result = {}
+            result["postage_label_url"] = None
+            result["billing_type"] = ShippingServiceDetails['shipping_company_name']
+            result["carrier"] = response["ShippingUnits"][0]["Shipping"]['FreightCarrier']
+            result["carrier_account_id"] = ShippingServiceDetails['user_id']
+            result["currency"] = ShippingServiceDetails['currency']
+            result["retail_rate"] = None
+            result["tracking_url"] = response["ShippingUnits"][0]["Shipping"]['TrackingLink']
+
+            return {
+                "data": result,
+                "status": "success",
+            }
+        else:
+            return {"data": {}, "status": "error"}
+    
+
+    except requests.exceptions.RequestException as e:
+        return {"status": "fail", "error": str(e)}

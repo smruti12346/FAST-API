@@ -141,6 +141,14 @@ def login_and_get_token():
 def veracore_order_fulfill(product_id:str, quantity:int, unit_price:float, user_address: ShippingAddressForVeracoreModel = Body(...)):
     return veracoreService.veracore_order_fulfill(product_id, quantity, unit_price, user_address)
 
+@router.post("/get-veracore-product-details/", tags=["SHIPPING MANAGEMENT VERACORE"])
+def get_veracore_product_details(product_id:str):
+    return veracoreService.get_veracore_product_details(product_id)
+
+@router.post("/get-veracore-tracking-details/", tags=["SHIPPING MANAGEMENT VERACORE"])
+def get_veracore_tracking_details(product_id:str):
+    return veracoreService.get_veracore_tracking_details(product_id)
+
 # ======================================================================================================
 # ==============================  SHIPPING MANAGEMENT VERACORE  ========================================
 # ======================================================================================================

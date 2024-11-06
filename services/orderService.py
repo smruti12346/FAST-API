@@ -10,7 +10,7 @@ import services.paymentService as paymentService
 import services.taxService as taxService
 import services.discountCouponService as discountCouponService
 import services.userService as userService
-import services.shippingService as shippingService
+import services.veracoreService as veracoreService
 import uuid
 import time
 
@@ -559,7 +559,7 @@ def order_create(customer_details, country_code, product_details):
 
         # buy shipment start
         shippingDetails = shippingService.create_and_buy_shipment(
-            customer_details, None
+            customer_details, None, order_models_dict_array
         )
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
@@ -742,7 +742,7 @@ def guest_order_create(product_details):
         payment_id = order_models_dict_array[0]["payment_id"]
 
         # buy shipment start
-        shippingDetails = shippingService.create_and_buy_shipment(None, address)
+        shippingDetails = shippingService.create_and_buy_shipment(None, address, order_models_dict_array)
         # print(shippingDetails)
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
@@ -1367,6 +1367,16 @@ def get_all_orders_by_user(request, user_id, page, show_page):
 
 def get_order_details_by_order_id(request, order_id):
     try:
+        shipping_company_name = ""
+
+        AdminShipingDetails = shippingService.view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            shipping_company_name = AdminShipingDetails["data"][0][
+                "shipping_company_name"
+            ]
 
         # print(order_id)
         pipeline = [
@@ -1475,11 +1485,23 @@ def get_order_details_by_order_id(request, order_id):
         ]
         result = list(collection.aggregate(pipeline))
         if len(result) > 0:
-            shipping_details = shippingService.get_shipping_label(
-                result[0]["order_tracking_id"]
-            )
-            if shipping_details["status"] != "error":
-                result[0]["shipping_details"] = shipping_details["data"]
+
+            if shipping_company_name == "USPS":
+                shipping_details = shippingService.get_shipping_label(
+                    result[0]["order_tracking_id"]
+                )
+                if shipping_details["status"] != "error":
+                    result[0]["shipping_details"] = shipping_details["data"]
+                else:
+                    result[0]["shipping_details"] = {}
+            elif shipping_company_name == "Veracore":
+                shipping_details = veracoreService.get_veracore_tracking_details(
+                    result[0]["order_tracking_id"]
+                )
+                if shipping_details["status"] != "error":
+                    result[0]["shipping_details"] = shipping_details["data"]
+                else:
+                    result[0]["shipping_details"] = {}
             else:
                 result[0]["shipping_details"] = {}
 

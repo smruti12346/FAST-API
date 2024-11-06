@@ -6,6 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 import logging
 import services.shippingService as shippingService
+import services.veracoreService as veracoreService
 import services.taxService as taxService
 
 collection = db["cart"]
@@ -145,10 +146,31 @@ def get_cart_details_by_product_id_user_id(product_id: str, user_id: str):
 def get_cart_details_by_product_arr(request, items):
     try:
         data = []
+        shipping_company_name = ""
+
+        AdminShipingDetails = shippingService.view_by_status(1)
+        if (
+            AdminShipingDetails["status"] == "success"
+            and len(AdminShipingDetails["data"]) > 0
+        ):
+            shipping_company_name = AdminShipingDetails["data"][0][
+                "shipping_company_name"
+            ]
+
         for item in items:
             product_data = get_product_by_id(request, item)
             if product_data["data"] and len(product_data["data"]) > 0:
-                data.append(product_data["data"][0])
+                if shipping_company_name == 'Veracore':
+                    veracoreproductdetails = veracoreService.get_veracore_product_details(product_data["data"][0]['product_sku'])
+                    if veracoreproductdetails['status'] == 'success':
+                        quantity = veracoreproductdetails['data'][0]['Available']
+                    else:
+                        quantity = 0
+                    product_data["data"][0]['quantity'] = quantity
+
+                    data.append(product_data["data"][0])
+                else:
+                    data.append(product_data["data"][0])
         return {
             "data": data,
             "status": "success",

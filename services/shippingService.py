@@ -2,6 +2,7 @@ import easypost
 import json
 import services.locationService as locationService
 from services import orderService
+from services import veracoreService
 from db import db
 from bson import ObjectId
 from datetime import datetime
@@ -330,8 +331,15 @@ def validate_address(street1, city, state, zip, country, email, phone):
         return {"message": str(e), "status": "error"}
 
 
-def create_shipment_and_get_rates(data, userAddressDetails=None):
+def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=None):
     try:
+
+        if userAddressDetails is None:
+            for item in data["address"]:
+                if item["primary_status"] == 1:
+                    userAddressDetails = item
+
+
         AdminShipingDetails = view_by_status(1)
         if (
             AdminShipingDetails["status"] == "success"
@@ -351,15 +359,50 @@ def create_shipment_and_get_rates(data, userAddressDetails=None):
                     "shipping_company_name": "self",
                     "tracker": None,
                 },
+                "shipping_company_response":None,
                 "status": "success",
             }
+        
+        if shipping_company_name == "Veracore":
+            if userAddressDetails is not None:
+                # print(productDetails)
+
+                user_address = {
+                    "Prefix": None,
+                    "FirstName": userAddressDetails['full_name'],
+                    "LastName": '',
+                    "Address1": userAddressDetails['roadName_area_colony'],
+                    "City": userAddressDetails['city_name'],
+                    "State": userAddressDetails['state_code'],
+                    "PostalCode": userAddressDetails['pin_number'],
+                    "Country": userAddressDetails['country_code'],
+                    "Phone": userAddressDetails['phone_number'],
+                    "Email": None,
+                }
+                
+                productsresult = list(
+                    db["product"].find(
+                        {
+                            "_id": ObjectId(productDetails[0]["product_id"]),
+                            "deleted_at": None,
+                        }
+                    )
+                )
+
+                shipment = veracoreService.veracore_order_fulfill(productsresult[0]['product_sku'], productDetails[0]['order_details']['total_quantity'], productDetails[0]['order_details']['sale_price'], user_address)
+                return {
+                    "data": {
+                        "id": shipment['OrderID'],
+                        "shipping_company_name": "Veracore",
+                        "tracker": None,
+                    },
+                    "shipping_company_response":shipment,
+                    "status": "success",
+                }
+            else:
+                return {"message": "Please select address", "status": "error"}
 
         client = easypost.EasyPostClient(api_key)
-
-        if userAddressDetails is None:
-            for item in data["address"]:
-                if item["primary_status"] == 1:
-                    userAddressDetails = item
 
         if userAddressDetails is not None:
             # print(userAddressDetails)
@@ -416,6 +459,7 @@ def create_shipment_and_get_rates(data, userAddressDetails=None):
             )
             return {
                 "data": json.loads(json.dumps(shipment.to_dict())),
+                "shipping_company_response":json.loads(json.dumps(shipment.to_dict())),
                 "status": "success",
             }
 
@@ -631,14 +675,17 @@ def get_shipping_label(shipping_id):
         return {"message": str(e), "status": "error"}
 
 
-def create_and_buy_shipment(data, userAddressdetails):
-    created_shipment = create_shipment_and_get_rates(data, userAddressdetails)
+def create_and_buy_shipment(data, userAddressdetails, productDetails):
+    created_shipment = create_shipment_and_get_rates(data, userAddressdetails, productDetails)
     # print(created_shipment)
 
     if created_shipment["status"] == "success":
         shipping_company_name = created_shipment["data"].get("shipping_company_name")
 
         if shipping_company_name and shipping_company_name == "self":
+            return created_shipment
+
+        if shipping_company_name and shipping_company_name == "Veracore":
             return created_shipment
 
         return buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
