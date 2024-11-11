@@ -413,7 +413,6 @@ def search_products(request, query):
         # return {"data": results, "status": "success"}
 
         pipeline = [
-            {"$match": {"deleted_at": None}},
             {
                 "$search": {
                     "index": "default",
@@ -423,6 +422,7 @@ def search_products(request, query):
                     },
                 }
             },
+            {"$match": {"deleted_at": None}},
             {
                 "$addFields": {
                     "imageUrl": {
