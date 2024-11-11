@@ -315,6 +315,15 @@ def validate_address(street1, city, state, zip, country, email, phone):
                 "status": "success",
             }
 
+        if shipping_company_name == "Veracore":
+            return {
+                "data": {
+                    "verifications": {"delivery": {"success": True}},
+                    "shipping_company_name": "Veracore",
+                },
+                "status": "success",
+            }
+
         client = easypost.EasyPostClient(api_key)
         address = client.address.create(
             verify_strict=True,

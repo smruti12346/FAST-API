@@ -5,6 +5,7 @@ import services.categoryService as categoryService
 import re
 from bson import ObjectId
 
+
 def random_date(start, end):
     start_u = start.timestamp()
     end_u = end.timestamp()
@@ -294,44 +295,53 @@ def generate_dummy_order_route_handle():
     return {"data": "data inserted successfully", "status": "success"}
 
 
-
 def update_category_arr(parent_id, arr=None):
     if arr is None:
         arr = []
 
-    collection = db['category']
+    collection = db["category"]
     result = collection.find_one({"id": parent_id})
 
-    if result and 'parent_id' in result:
-        arr.append(result['parent_id'])
-        update_category_arr(result['parent_id'], arr)
-    
+    if result and "parent_id" in result:
+        arr.append(result["parent_id"])
+        update_category_arr(result["parent_id"], arr)
+
     return arr
 
 
 def get_all_category_arr_hirarchy():
-    collection = db['category']
+    collection = db["category"]
     result = collection.find()
     for item in result:
-        parent_id_arr =  update_category_arr(item['id'], None)
+        parent_id_arr = update_category_arr(item["id"], None)
         # print("slug = > ",item['name'],type(item['_id']), update_category_arr(item['id'], None))
         collection.update_one(
-            {"_id": item['_id']},
-            {"$set": {"parent_id_arr": parent_id_arr}}
+            {"_id": item["_id"]}, {"$set": {"parent_id_arr": parent_id_arr}}
         )
 
 
 def create_slug(input_string):
     # Convert to lowercase, remove unwanted characters, replace spaces/commas with hyphens
-    slug = re.sub(r'[^a-z0-9\s,-]', '', input_string.lower())  # Remove special characters except commas and hyphens
-    slug = re.sub(r'[\s,]+', '-', slug)  # Replace spaces and commas with hyphens
-    slug = re.sub(r'-+', '-', slug).strip()  # Replace multiple hyphens with a single hyphen
+    slug = re.sub(
+        r"[^a-z0-9\s,-]", "", input_string.lower()
+    )  # Remove special characters except commas and hyphens
+    slug = re.sub(r"[\s,]+", "-", slug)  # Replace spaces and commas with hyphens
+    slug = re.sub(
+        r"-+", "-", slug
+    ).strip()  # Replace multiple hyphens with a single hyphen
     return slug
 
+
 def convert_to_valid_slug():
-    collection = db['product']
-    for doc in collection.find():  # Add filter if necessary, e.g., find({"slug": {"$exists": False}})
-        original_value = doc.get("slug", "")  # Replace 'field_name' with your target field containing the input string
+    collection = db["product"]
+    for (
+        doc
+    ) in (
+        collection.find()
+    ):  # Add filter if necessary, e.g., find({"slug": {"$exists": False}})
+        original_value = doc.get(
+            "slug", ""
+        )  # Replace 'field_name' with your target field containing the input string
         if original_value:
             updated_slug = create_slug(original_value)
             # Update the document with the new slug
@@ -346,7 +356,7 @@ def generate_unique_slug(slug, existing_slugs):
     """
     if slug not in existing_slugs:
         return slug
-    
+
     # Find the highest slug-number pattern like slug-1, slug-2, etc.
     max_number = 0
     slug_pattern = re.compile(f"^{re.escape(slug)}-(\\d+)$")
@@ -354,7 +364,7 @@ def generate_unique_slug(slug, existing_slugs):
         match = slug_pattern.match(s)
         if match:
             max_number = max(max_number, int(match.group(1)))
-    
+
     # Append the next number
     new_slug = f"{slug}-{max_number + 1}"
     return new_slug
@@ -362,32 +372,59 @@ def generate_unique_slug(slug, existing_slugs):
 
 def fix_duplicate_slugs():
     try:
-        collection = db['product']
+        collection = db["product"]
 
         # Find all documents and store slugs
         all_docs = list(collection.find({}, {"slug": 1}))
         slug_count = {}
-        
+
         for doc in all_docs:
-            slug = doc['slug']
+            slug = doc["slug"]
             if slug in slug_count:
-                slug_count[slug].append(doc['_id'])
+                slug_count[slug].append(doc["_id"])
             else:
-                slug_count[slug] = [doc['_id']]
-        
+                slug_count[slug] = [doc["_id"]]
+
         # Loop through each slug that has more than 1 occurrence
         for slug, ids in slug_count.items():
             if len(ids) > 1:
                 # Find all existing slugs to avoid conflicts
-                existing_slugs = [doc['slug'] for doc in collection.find({"slug": {"$regex": f"^{slug}-?"}})]
-                
+                existing_slugs = [
+                    doc["slug"]
+                    for doc in collection.find({"slug": {"$regex": f"^{slug}-?"}})
+                ]
+
                 # Skip the first one (keep the original slug) and rename others
                 for i, doc_id in enumerate(ids[1:], start=1):
                     new_slug = generate_unique_slug(slug, existing_slugs)
-                    collection.update_one({"_id": ObjectId(doc_id)}, {"$set": {"slug": new_slug}})
+                    collection.update_one(
+                        {"_id": ObjectId(doc_id)}, {"$set": {"slug": new_slug}}
+                    )
                     existing_slugs.append(new_slug)
 
         return {"message": "Duplicate slugs fixed successfully"}
-    
+
     except Exception as e:
         print(str(e))
+
+
+def update_all_categories_parent_id_arr():
+    documents = db["category"].find()
+    updated_count = 0
+
+    for document in documents:
+        parent_id_arr = document.get("parent_id_arr", [])
+
+        if parent_id_arr:
+            sorted_parent_id_arr = sorted(parent_id_arr)
+            update_result = db["category"].update_one(
+                {"_id": document["_id"]},
+                {"$set": {"parent_id_arr": sorted_parent_id_arr}},
+            )
+            if update_result.modified_count > 0:
+                updated_count += 1
+
+    if updated_count == 0:
+        return {"detail": "No documents were updated"}
+
+    return {"message": f"{updated_count} documents updated successfully"}

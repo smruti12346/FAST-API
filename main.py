@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.staticfiles import StaticFiles
 from os import getcwd
+from middleware.multiTenantMiddleware import TenantMiddleware
 
-from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute, taxRoute, discountCouponRoute
+from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute, taxRoute, discountCouponRoute, smtpRoute
 
 GOOGLE_CLIENT_ID = (
     "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
@@ -20,6 +21,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ==================================================================================
 # ============= Allow requests from localhost during development start =============
 # ==================================================================================
+app.add_middleware(TenantMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -80,6 +82,9 @@ app.include_router(taxRoute.router)
 
 # DISCOUNT COUPON ROUTE START
 app.include_router(discountCouponRoute.router)
+
+# SMTP ROUTE START
+app.include_router(smtpRoute.router)
 
 # EMAIL ROUTE START
 app.include_router(emailRoute.router)

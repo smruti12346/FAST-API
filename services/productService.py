@@ -413,6 +413,7 @@ def search_products(request, query):
         # return {"data": results, "status": "success"}
 
         pipeline = [
+            {"$match": {"deleted_at": None}},
             {
                 "$search": {
                     "index": "default",
@@ -568,7 +569,7 @@ def get_product_by_id(request, product_id):
 def get_product_by_slug(request, product_slug):
     try:
         pipeline = [
-            {"$match": {"slug": product_slug}},
+            {"$match": {"slug": product_slug, "deleted_at": None}},
             {
                 "$lookup": {
                     "from": "category",

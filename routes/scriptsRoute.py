@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI, Depends, Request
 import services.scripts as scripts
+import middleware.multiTenantMiddleware as multiTenantMiddleware
 
 router = APIRouter()
 
@@ -26,3 +27,11 @@ def convert_to_valid_slug():
 @router.post("/fix-duplicate-slugs/")
 def fix_duplicate_slugs():
     return scripts.fix_duplicate_slugs()
+
+@router.get("/get-db-token/")
+async def get_db_token(request: Request, client_id: str = Depends(multiTenantMiddleware.get_client_id)):
+    print(client_id)
+
+@router.get("/update-all-categories-parent-id-arr/")
+def update_all_categories_parent_id_arr():
+    return scripts.update_all_categories_parent_id_arr()
