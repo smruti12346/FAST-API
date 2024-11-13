@@ -519,9 +519,9 @@ def order_create(customer_details, country_code, product_details):
         order_models_dict_array = [order.dict() for order in product_details]
         if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
-        
+
         AdminShipingDetails = shippingService.view_by_status(1)
-        adminEmail = AdminShipingDetails['data'][0]['addressDetails']['email']
+        adminEmail = AdminShipingDetails["data"][0]["addressDetails"]["email"]
 
         address = get_address_by_id(str(customer_details["_id"]))
         if address["status"] == "success":
@@ -662,6 +662,7 @@ def order_create(customer_details, country_code, product_details):
                 "order_id": str(order_id),
             }
             get_order_invoice(Request, data, BackgroundTasks)
+            new_order_notification_to_admin(Request, data, BackgroundTasks)
         # email integration for invoice  start
         return {
             "message": "Order placed successfully",
@@ -689,7 +690,7 @@ def guest_order_create(product_details):
         )
 
         AdminShipingDetails = shippingService.view_by_status(1)
-        adminEmail = AdminShipingDetails['data'][0]['addressDetails']['email']
+        adminEmail = AdminShipingDetails["data"][0]["addressDetails"]["email"]
 
         address = order_models_dict_array[0]["address"]
         address["primary_status"] = 1
@@ -742,7 +743,9 @@ def guest_order_create(product_details):
         payment_id = order_models_dict_array[0]["payment_id"]
 
         # buy shipment start
-        shippingDetails = shippingService.create_and_buy_shipment(None, address, order_models_dict_array)
+        shippingDetails = shippingService.create_and_buy_shipment(
+            None, address, order_models_dict_array
+        )
         # print(shippingDetails)
         if shippingDetails["status"] == "success":
             shipping_id = shippingDetails["data"]["id"]
@@ -826,14 +829,13 @@ def guest_order_create(product_details):
                     # },
                     #  # impliment quantity end
                     "$inc": {
-                        "sold_quantity": + existing_order_data["order_details"][
+                        "sold_quantity": +existing_order_data["order_details"][
                             "total_quantity"
                         ]
                     },
                 },
             )
         # update quantity and varient after check quantity end
-
 
         # # not required =======================
         # filter = {"payment_id": payment_id}
@@ -852,6 +854,7 @@ def guest_order_create(product_details):
                 "order_id": str(order_id),
             }
             get_order_invoice(Request, data, BackgroundTasks)
+            new_order_notification_to_admin(Request, data, BackgroundTasks)
         # email integration for invoice  start
 
         return {
@@ -1019,7 +1022,6 @@ def get_all_orders(request, page, show_page, search_query):
             except Exception:
                 pass
             pipeline.append({"$match": search_condition})
-
 
         execution_start_time = time.time()
         pipeline += [
@@ -1947,15 +1949,160 @@ def get_order_invoice(request, data, background_tasks):
                     </body>
                     </html>
                     """
-                data["email"].append(result.get("user_details", {}).get("email"))
+                # data["email"].append(result.get("user_details", {}).get("email"))
                 # background_tasks.add_task(
                 #     send_email,
                 #     data["email"],
                 #     "Invoice Report",
                 #     body,
                 # )
-                print("Email sent to", data["email"])
-                send_email(data["email"], "Invoice Report", body)
+                # print("Email sent to", data["email"])
+                email = result.get("user_details", {}).get("email")
+                send_email(email, "Invoice Report", body)
+                return {"message": "Email sent successfully", "status": "success"}
+            else:
+                return {"message": "Unable to generate invoice", "status": "error"}
+        else:
+            return {"message": "No data found", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def new_order_notification_to_admin(request, data, background_tasks):
+    try:
+        # admindetails = shippingService.view_by_status(1)["data"][0]["addressDetails"]
+        data = dict(data)
+        results = get_order_details_by_order_id(request, data["order_id"])
+
+        if results["status"] == "success" and results["data"][0]:
+            result = results["data"][0]
+            if result["status"] == 4 or result["status"] == 5 or result["status"] == 6:
+                # print(result)
+                body = f"""
+                    <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <title>New Order Notification</title>
+                            <style>
+                                body {{
+                                    font-family: Arial, sans-serif;
+                                    background-color: #f4f4f4;
+                                    margin: 0;
+                                    padding: 0;
+                                }}
+                                .container {{
+                                    max-width: 700px;
+                                    margin: 20px auto;
+                                    padding: 20px;
+                                    background-color: #ffffff;
+                                    border: 1px solid #ddd;
+                                }}
+                                h2 {{
+                                    color: #333;
+                                    text-align: center;
+                                }}
+                                .order-info, .customer-info, .order-details {{
+                                    margin-bottom: 20px;
+                                }}
+                                .order-info p, .customer-info p, .order-details p {{
+                                    margin: 5px 0;
+                                }}
+                                .table {{
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                    margin-top: 15px;
+                                }}
+                                .table th, .table td {{
+                                    padding: 10px;
+                                    border: 1px solid #ddd;
+                                    text-align: left;
+                                }}
+                                .table th {{
+                                    background-color: #f8f8f8;
+                                    font-weight: bold;
+                                }}
+                                .total-row {{
+                                    font-weight: bold;
+                                    background-color: #f4f4f4;
+                                }}
+                                .footer {{
+                                    font-size: 12px;
+                                    color: #666;
+                                    text-align: center;
+                                    margin-top: 20px;
+                                }}
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <h2>New Order Notification</h2>
+
+                                <!-- Order Information -->
+                                <div class="order-info">
+                                    <p><strong>Order ID:</strong> { result.get('_id', '') }</p>
+                                    <p><strong>Order Date:</strong> { result.get('created_at', '') }</p>
+                                </div>
+
+                                <!-- Customer Information -->
+                                <div class="customer-info">
+                                    <h3>Customer Information</h3>
+                                    <p><strong>Name:</strong> { result.get('user_details')['name'] }</p>
+                                    <p><strong>Address:</strong> { result.get('address')['full_name'] }, 
+                                        { result.get('address')['city_name'] }, { result.get('address')['state_name'] }, 
+                                        { result.get('address')['country_name'] }, { result.get('address')['pin_number'] }
+                                    </p>
+                                </div>
+
+                                <!-- Order Details Table -->
+                                <div class="order-details">
+                                    <h3>Order Details</h3>
+                                    <table class="table">
+                                        <tr>
+                                            <th>Item</th>
+                                            <th>Quantity</th>
+                                            <th>Unit Price</th>
+                                            <th>Total</th>
+                                        </tr>
+                                        <tr>
+                                            <td>{ result.get('product_details')['name'] }</td>
+                                            <td>{ result.get('order_details')['total_quantity'] }</td>
+                                            <td>{ result.get('order_details')['sale_price'] }</td>
+                                            <td>{ result.get('order_details')['sale_price'] }</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td colspan="3" style="text-align: right;">Subtotal</td>
+                                            <td>{ result.get('order_details')['sale_price'] }</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td colspan="3" style="text-align: right;">Shipping</td>
+                                            <td>{ result.get('order_details')['deliveryCharges'] }</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td colspan="3" style="text-align: right;">Discount</td>
+                                            <td>{ result.get('order_details')['discountAmount'] } 
+                                                ({ result.get('order_details')['discountInPercentage'] }%)</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td colspan="3" style="text-align: right;">Total Due</td>
+                                            <td>{ result.get('order_details')['total_price'] }</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <div class="footer">
+                                    <p>Please process this order at your earliest convenience.</p>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                    """
+
+                # print("Email sent to", data["email"])
+                send_email(
+                    data["email"], "New Order Notification", body
+                )
                 return {"message": "Email sent successfully", "status": "success"}
             else:
                 return {"message": "Unable to generate invoice", "status": "error"}

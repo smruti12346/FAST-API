@@ -1,5 +1,6 @@
 from fastapi import APIRouter, FastAPI, Depends, Request
 import services.scripts as scripts
+import services.orderService as orderService
 import middleware.multiTenantMiddleware as multiTenantMiddleware
 
 router = APIRouter()
@@ -35,3 +36,7 @@ async def get_db_token(request: Request, client_id: str = Depends(multiTenantMid
 @router.get("/update-all-categories-parent-id-arr/")
 def update_all_categories_parent_id_arr():
     return scripts.update_all_categories_parent_id_arr()
+
+@router.get("/new-order-notification-to-admin/")
+def new_order_notification_to_admin(request: Request,email:str, order_id:str):
+    return orderService.new_order_notification_to_admin(request, email, order_id)

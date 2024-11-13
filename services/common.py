@@ -2,6 +2,7 @@ from math import ceil
 import math
 from PIL import Image
 import os
+import re
 
 def replace_nan_with_default(data, default_value=0):
     if isinstance(data, list):
@@ -57,6 +58,10 @@ def convert_oid_to_str(maindata):
         data.append(doc)
     return data
 
+def sanitize_filename(filename: str) -> str:
+    filename = filename.replace(" ", "_")
+    filename = re.sub(r"[^a-zA-Z0-9_\-\.]", "", filename)
+    return filename
 
 def resize_image(filename, mainFileName, PATH_FILES):
 

@@ -449,7 +449,7 @@ def get_category_wise_product(
         mainArr.append(category_id)
 
         query = [
-            {"$match": {"category_id": {"$in": mainArr}}},
+            {"$match": {"category_id": {"$in": mainArr}, "deleted_at": None}},
             {
                 "$lookup": {
                     "from": "category",
