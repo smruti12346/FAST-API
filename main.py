@@ -4,6 +4,7 @@ import os
 from fastapi.staticfiles import StaticFiles
 from os import getcwd
 from middleware.multiTenantMiddleware import TenantMiddleware
+from cors_config import setup_cors
 
 from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute, taxRoute, discountCouponRoute, smtpRoute
 
@@ -22,22 +23,25 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ============= Allow requests from localhost during development start =============
 # ==================================================================================
 app.add_middleware(TenantMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://ecomm-python-next.vercel.app",
-        "https://python-next-ecommerce-frontend.vercel.app",
-        "https://zvu.shoppingxperts.com",
-        "https://riverranch-api.shoppingxperts.com",
-        "https://thera-posture.com",
-        "https://shoppingxpertsadmin-2va4z9vsk-digitalvates-projects.vercel.app",
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+# Setup CORS using the configuration from cors_config.py
+setup_cors(app)
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "http://localhost:3000",
+#         "http://localhost:3001",
+#         "https://ecomm-python-next.vercel.app",
+#         "https://python-next-ecommerce-frontend.vercel.app",
+#         "https://zvu.shoppingxperts.com",
+#         "https://riverranch-api.shoppingxperts.com",
+#         "https://thera-posture.com",
+#         "https://shoppingxpertsadmin-2va4z9vsk-digitalvates-projects.vercel.app",
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "PUT", "DELETE"],
+#     allow_headers=["Authorization", "Content-Type"],
+# )
 # ==================================================================================
 # ============= Allow requests from localhost during development end ===============
 # ==================================================================================

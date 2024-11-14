@@ -1757,7 +1757,7 @@ def get_order_invoice(request, data, background_tasks):
 
         if results["status"] == "success" and results["data"][0]:
             result = results["data"][0]
-            if result["status"] == 1:
+            if result["status"] == 1 or result["status"] == 5 or result["status"] == 6:
                 # print(result)
                 body = f"""
                     <!DOCTYPE html>
@@ -1978,7 +1978,7 @@ def new_order_notification_to_admin(request, data, background_tasks):
 
         if results["status"] == "success" and results["data"][0]:
             result = results["data"][0]
-            if result["status"] == 1:
+            if result["status"] == 1 or result["status"] == 5 or result["status"] == 6:
                 # print(result)
                 body = f"""
                     <!DOCTYPE html>
