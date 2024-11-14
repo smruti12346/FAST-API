@@ -1,1 +1,4 @@
 /uploads
+
+db.py
+cors_config.py
