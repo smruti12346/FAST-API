@@ -6,12 +6,13 @@ import json
 class PaymentModel(BaseModel):
     name: str
     getway_name: str
-    user_id: str
-    password: str
-    api_key: str
-    currency: str
-    return_url: str
-    cancel_url: str
+    user_id: Optional[str] = None
+    password: Optional[str] = None
+    client_id: Optional[str] = None
+    secret_key: Optional[str] = None
+    currency: Optional[str] = None
+    return_url: Optional[str] = None
+    cancel_url: Optional[str] = None
     status: Optional[int] = Field(default=0)
     deleted_at: Optional[str] = None
     created_at: Optional[str] = Field(default=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))

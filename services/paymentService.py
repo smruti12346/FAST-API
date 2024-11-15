@@ -21,10 +21,10 @@ def create(data):
     try:
         data = dict(data)
         if (
-            collection.count_documents({"api_key": data["api_key"], "deleted_at": None})
+            collection.count_documents({"client_id": data["client_id"], "deleted_at": None})
             != 0
         ):
-            return {"message": "API key already exist", "status": "error"}
+            return {"message": "Client id already exist", "status": "error"}
 
         data["id"] = (
             int(dict(collection.find_one({}, sort=[("id", -1)]))["id"]) + 1
@@ -57,7 +57,8 @@ def view(request, page, show_page):
                     "cancel_url": 1,
                     "user_id": 1,
                     "password": 1,
-                    "api_key": 1,
+                    "client_id": 1,
+                    "secret_key": 1,
                     "status": 1,
                     "created_at": 1,
                 }
