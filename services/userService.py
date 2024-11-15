@@ -45,8 +45,11 @@ def create(user_data):
             result = collection.insert_one(user_data)
 
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            # access_token = create_access_token(
+            #     data={"sub": user_data["email"]}, expires_delta=access_token_expires
+            # )
             access_token = create_access_token(
-                data={"sub": user_data["email"]}, expires_delta=access_token_expires
+                data={"sub": user_data["email"]}
             )
 
             return {
@@ -300,7 +303,7 @@ def login(email, password: str):
             if pwd_context.verify(password, user["password"]):
                 access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
                 access_token = create_access_token(
-                    data={"sub": user["email"]}, expires_delta=access_token_expires
+                    data={"sub": user["email"]}
                 )
                 return {
                     "message": "login successfully",
@@ -348,7 +351,7 @@ def auth_google(email, password, name):
 
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": email}, expires_delta=access_token_expires
+            data={"sub": email}
         )
 
         return {
@@ -372,7 +375,7 @@ def login_for_access_token(form_data):
         if pwd_context.verify(form_data.password, user["password"]):
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = create_access_token(
-                data={"sub": user["email"]}, expires_delta=access_token_expires
+                data={"sub": user["email"]}
             )
             return Token(access_token=access_token, token_type="bearer")
     else:
