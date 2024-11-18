@@ -45,11 +45,8 @@ def create(user_data):
             result = collection.insert_one(user_data)
 
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-            # access_token = create_access_token(
-            #     data={"sub": user_data["email"]}, expires_delta=access_token_expires
-            # )
             access_token = create_access_token(
-                data={"sub": user_data["email"]}
+                data={"sub": user_data["email"]}, expires_delta=access_token_expires
             )
 
             return {
@@ -291,7 +288,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
+    # to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -303,7 +300,7 @@ def login(email, password: str):
             if pwd_context.verify(password, user["password"]):
                 access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
                 access_token = create_access_token(
-                    data={"sub": user["email"]}
+                    data={"sub": user["email"]}, expires_delta=access_token_expires
                 )
                 return {
                     "message": "login successfully",
@@ -351,7 +348,7 @@ def auth_google(email, password, name):
 
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": email}
+            data={"sub": email}, expires_delta=access_token_expires
         )
 
         return {
@@ -375,7 +372,7 @@ def login_for_access_token(form_data):
         if pwd_context.verify(form_data.password, user["password"]):
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = create_access_token(
-                data={"sub": user["email"]}
+                data={"sub": user["email"]}, expires_delta=access_token_expires
             )
             return Token(access_token=access_token, token_type="bearer")
     else:
