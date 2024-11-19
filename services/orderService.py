@@ -1105,6 +1105,7 @@ def get_all_orders(request, page, show_page, search_query):
                     "customer_details.email": "$customer_details.email",
                 }
             },
+            {"$sort": {"created_at": -1}},
             {
                 "$project": {
                     "_id": {"$toString": "$_id"},
@@ -1697,6 +1698,7 @@ def get_all_orders_status_wise(request, statusArr, page, show_page):
                     "customer_details.email": "$customer_details.email",
                 }
             },
+            {"$sort": {"created_at": -1}},
             {
                 "$project": {
                     "_id": {"$toString": "$_id"},
@@ -2102,9 +2104,7 @@ def new_order_notification_to_admin(request, data, background_tasks):
                     """
 
                 # print("Email sent to", data["email"])
-                send_email(
-                    data["email"], "New Order Notification", body
-                )
+                send_email(data["email"], "New Order Notification", body)
                 return {"message": "Email sent successfully", "status": "success"}
             else:
                 return {"message": "Unable to generate invoice", "status": "error"}
