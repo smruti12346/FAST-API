@@ -14,14 +14,17 @@ PAYPAL_CLIENT_ID = (
 PAYPAL_SECRET = (
     "EOgzoHLwc5ax-5ytU2ACsRnGmYquyDwslQsPCKHefMtvEDjNSDMmMPW4mIt8gM5A6l1cDiNMNGA5rAIe"
 )
-PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"
+# PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"
+PAYPAL_BASE_URL = "https://api-m.paypal.com"
 
 
 def create(data):
     try:
         data = dict(data)
         if (
-            collection.count_documents({"client_id": data["client_id"], "deleted_at": None})
+            collection.count_documents(
+                {"client_id": data["client_id"], "deleted_at": None}
+            )
             != 0
         ):
             return {"message": "Client id already exist", "status": "error"}
@@ -170,8 +173,27 @@ def get_paypal_access_token(PAYPAL_CLIENT_ID, PAYPAL_SECRET):
     return response_data["access_token"]
 
 
-def create_paypal_order(purchase_units, client_id, secret_key, return_url, cancel_url):
+def create_paypal_order(total_amount, currency):
     try:
+        client_id, secret_key = "", ""
+        # Retrieve Payment Details
+        active_payment_details = view_by_getway_name("paypal")
+        if (
+            active_payment_details["status"] == "success"
+            and len(active_payment_details["data"]) > 0
+        ):
+
+            client_id = active_payment_details["data"][0]["client_id"]
+            secret_key = active_payment_details["data"][0]["secret_key"]
+            currency_code = active_payment_details["data"][0]["currency"]
+            return_url = active_payment_details["data"][0]["return_url"]
+            cancel_url = active_payment_details["data"][0]["cancel_url"]
+        else:
+            return {
+                "message": "There is some internal problem we unable to proceed your order, please try again later",
+                "status": "error",
+            }
+
         access_token = get_paypal_access_token(client_id, secret_key)
         url = f"{PAYPAL_BASE_URL}/v2/checkout/orders"
         headers = {
@@ -180,16 +202,16 @@ def create_paypal_order(purchase_units, client_id, secret_key, return_url, cance
         }
         order_data = {
             "intent": "CAPTURE",
-            # "purchase_units": [
-            #     {
-            #         "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718b",
-            #         "amount": {"currency_code": "USD", "value": "100.00"},
-            #     }
-            # ],
-            "purchase_units": purchase_units,
+            "purchase_units": [
+                {
+                    "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718bC",
+                    "amount": {"currency_code": currency_code, "value": total_amount},
+                }
+            ],
+            # "purchase_units": purchase_units,
             "application_context": {
-                "return_url": return_url,
-                "cancel_url": cancel_url,
+                "return_url": "https://zvu.shoppingxperts.com/order-cancel/details",
+                "cancel_url": "https://zvu.shoppingxperts.com/order-cancel/details",
             },
         }
         response = requests.post(url, headers=headers, json=order_data)
@@ -198,9 +220,50 @@ def create_paypal_order(purchase_units, client_id, secret_key, return_url, cance
         return {"message": str(e), "status": "error"}
 
 
-def capture_paypal_order(order_id, client_id, secret_key):
+def validate_order(order_id, access_token):
+    url = f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}" 
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}",
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        order = response.json()
+        if order["status"] != "APPROVED":
+            return {"message": "Order is not approved", "status": "error"}
+        else:
+            return {"message": "Order is approved", "status": "success"}
+    else:
+        return {"message": "Error validating order", "status": "error"}
+
+
+def capture_paypal_order(order_id):
     try:
+        client_id, secret_key = "", ""
+        # Retrieve Payment Details
+        active_payment_details = view_by_getway_name("paypal")
+        if (
+            active_payment_details["status"] == "success"
+            and len(active_payment_details["data"]) > 0
+        ):
+
+            client_id = active_payment_details["data"][0]["client_id"]
+            secret_key = active_payment_details["data"][0]["secret_key"]
+            currency_code = active_payment_details["data"][0]["currency"]
+            return_url = active_payment_details["data"][0]["return_url"]
+            cancel_url = active_payment_details["data"][0]["cancel_url"]
+        else:
+            return {
+                "message": "There is some internal problem we unable to proceed your order, please try again later",
+                "status": "error",
+            }
+
         access_token = get_paypal_access_token(client_id, secret_key)
+
+        validate_order_status = validate_order(order_id, access_token)
+        if validate_order_status["status"] == "error":
+            return {"message": validate_order_status["message"], "status": "error"}
+
         url = f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}/capture"
         headers = {
             "Content-Type": "application/json",

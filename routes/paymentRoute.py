@@ -41,12 +41,12 @@ def change_status(payment_id: str):
 # ======================================================================================================
 # ======================================================================================================
 
-@router.post("/create-order/", tags=['PAYMENT MANAGEMENT'])
+@router.post("/create-paypal-order/", tags=['PAYMENT MANAGEMENT'])
 def create_paypal_order(total_amount: float, currency: str = "USD"):
     return paymentService.create_paypal_order(total_amount, currency)
 
 
-@router.post("/capture-order/", tags=['PAYMENT MANAGEMENT'])
+@router.post("/capture-paypal-order/", tags=['PAYMENT MANAGEMENT'])
 def capture_paypal_order(order_id: str):
     return paymentService.capture_paypal_order(order_id)
 

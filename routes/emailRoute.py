@@ -8,7 +8,6 @@ router = APIRouter()
 class EmailSchema(BaseModel):
     email: List[EmailStr]
     subject: str
-    order_id: str
 
 @router.post("/send-email/")
 async def send_email_endpoint(email: EmailSchema, background_tasks: BackgroundTasks):
@@ -219,5 +218,5 @@ async def send_email_endpoint(email: EmailSchema, background_tasks: BackgroundTa
 
 
 
-    background_tasks.add_task(send_email, email.email, email.subject, email.order_id, body)
+    background_tasks.add_task(send_email, email.email, email.subject, body)
     return {"message": "Email has been sent"}
