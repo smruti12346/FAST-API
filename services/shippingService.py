@@ -3,6 +3,7 @@ import json
 import services.locationService as locationService
 from services import orderService
 from services import veracoreService
+from services import easyPostShippingService
 from db import db
 from bson import ObjectId
 from datetime import datetime
@@ -178,6 +179,7 @@ def view_by_status(status):
                     "id": 1,
                     "name": 1,
                     "shipping_company_name": 1,
+                    "domain_url": 1,
                     "currency": 1,
                     "country_code": 1,
                     "national_fix_amount": 1,
@@ -214,19 +216,98 @@ def view_by_status(status):
 
 def view_by_shipping_company_name(shipping_company_name):
     try:
-        result = list(
-            collection.find(
-                {"shipping_company_name": shipping_company_name, "status": 1, "deleted_at": None}
-            )
-        )
+        pipeline = [
+            {"$match": {"shipping_company_name": shipping_company_name, "deleted_at": None}},
+            {"$addFields": {"admin_id_obj": {"$toObjectId": "$admin_id"}}},
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "admin_id_obj",
+                    "foreignField": "_id",
+                    "as": "UserDetails",
+                }
+            },
+            {"$unwind": "$UserDetails"},
+            {
+                "$addFields": {
+                    "addressDetails": {
+                        "$filter": {
+                            "input": "$UserDetails.address",
+                            "as": "address",
+                            "cond": {"$eq": ["$$address.id", "$address_id"]},
+                        },
+                    },
+                    "user_name": "$UserDetails.name",
+                    "user_email": "$UserDetails.email",
+                    "user_mobile": "$UserDetails.mobile",
+                }
+            },
+            {"$unwind": "$addressDetails"},
+            {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "country_code",
+                    "foreignField": "iso2",
+                    "as": "addressDetailsForCurrencyAndCountryName",
+                }
+            },
+            {"$unwind": "$addressDetailsForCurrencyAndCountryName"},
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "id": 1,
+                    "name": 1,
+                    "shipping_company_name": 1,
+                    "domain_url": 1,
+                    "currency": 1,
+                    "country_code": 1,
+                    "national_fix_amount": 1,
+                    "charges_above_national_fix_amount": 1,
+                    "charges_bellow_national_fix_amount": 1,
+                    "international_fix_amount": 1,
+                    "charges_above_international_fix_amount": 1,
+                    "charges_bellow_international_fix_amount": 1,
+                    "address_id": 1,
+                    "user_id": 1,
+                    "admin_id": 1,
+                    "password": 1,
+                    "api_key": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "addressDetails": 1,
+                    "user_name": 1,
+                    "user_email": 1,
+                    "user_mobile": 1,
+                    "addressDetailsForCurrencyAndCountryName.name": 1,
+                    "addressDetailsForCurrencyAndCountryName.iso2": 1,
+                }
+            },
+        ]
+        result = collection.aggregate(pipeline)
         data = []
         for doc in result:
             doc["_id"] = str(doc["_id"])
             data.append(doc)
         return {"data": data, "status": "success"}
+
+
+        # result = list(
+        #     collection.find(
+        #         {
+        #             "shipping_company_name": shipping_company_name,
+        #             "status": 1,
+        #             "deleted_at": None,
+        #         }
+        #     )
+        # )
+        # data = []
+        # for doc in result:
+        #     doc["_id"] = str(doc["_id"])
+        #     data.append(doc)
+        # return {"data": data, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
-    
+
 
 def view_by_getway_name(getway_name):
     try:
@@ -348,7 +429,6 @@ def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=
                 if item["primary_status"] == 1:
                     userAddressDetails = item
 
-
         AdminShipingDetails = view_by_status(1)
         if (
             AdminShipingDetails["status"] == "success"
@@ -368,27 +448,27 @@ def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=
                     "shipping_company_name": "self",
                     "tracker": None,
                 },
-                "shipping_company_response":None,
+                "shipping_company_response": None,
                 "status": "success",
             }
-        
+
         if shipping_company_name == "Veracore":
             if userAddressDetails is not None:
                 # print(productDetails)
 
                 user_address = {
                     "Prefix": None,
-                    "FirstName": userAddressDetails['full_name'],
-                    "LastName": '',
-                    "Address1": userAddressDetails['roadName_area_colony'],
-                    "City": userAddressDetails['city_name'],
-                    "State": userAddressDetails['state_code'],
-                    "PostalCode": userAddressDetails['pin_number'],
-                    "Country": userAddressDetails['country_code'],
-                    "Phone": userAddressDetails['phone_number'],
+                    "FirstName": userAddressDetails["full_name"],
+                    "LastName": "",
+                    "Address1": userAddressDetails["roadName_area_colony"],
+                    "City": userAddressDetails["city_name"],
+                    "State": userAddressDetails["state_code"],
+                    "PostalCode": userAddressDetails["pin_number"],
+                    "Country": userAddressDetails["country_code"],
+                    "Phone": userAddressDetails["phone_number"],
                     "Email": None,
                 }
-                
+
                 productsresult = list(
                     db["product"].find(
                         {
@@ -398,82 +478,59 @@ def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=
                     )
                 )
 
-                shipment = veracoreService.veracore_order_fulfill(productsresult[0]['product_sku'], productDetails[0]['order_details']['total_quantity'], productDetails[0]['order_details']['sale_price'], user_address)
+                shipment = veracoreService.veracore_order_fulfill(
+                    productsresult[0]["product_sku"],
+                    productDetails[0]["order_details"]["total_quantity"],
+                    productDetails[0]["order_details"]["sale_price"],
+                    user_address,
+                )
                 return {
                     "data": {
-                        "id": shipment['OrderID'],
+                        "id": shipment["OrderID"],
                         "shipping_company_name": "Veracore",
                         "tracker": None,
                     },
-                    "shipping_company_response":shipment,
+                    "shipping_company_response": shipment,
                     "status": "success",
                 }
             else:
                 return {"message": "Please select address", "status": "error"}
 
-        client = easypost.EasyPostClient(api_key)
-
-        if userAddressDetails is not None:
-            # print(userAddressDetails)
-            shipment = client.shipment.create(
-                # carrier_accounts=["ca_c42e6d3b0c3c4964ae880ce2f0e62588"],
-                # service="Express",
-                to_address={
-                    "name": userAddressDetails["full_name"],  # "Dr. Steve Brule",
-                    "street1": userAddressDetails[
-                        "roadName_area_colony"
-                    ],  # "179 N Harbor Dr",
-                    "city": userAddressDetails["city_name"],  # "Redondo Beach",
-                    "state": userAddressDetails["state_code"],  # "CA",
-                    "zip": userAddressDetails["pin_number"],  # "90277",
-                    "country": userAddressDetails["country_code"],  # "US",
-                    "phone": userAddressDetails["phone_number"],  # "4153334444",
-                    "email": (
-                        data["email"] if data != None else userAddressDetails["email"]
-                    ),  # "dr_steve_brule@gmail.com",
-                },
-                from_address={
-                    "name": AdminShipingDetails["data"][0]["name"],  # "EasyPost"
-                    "street1": AdminShipingDetails["data"][0]["addressDetails"][
-                        "roadName_area_colony"
-                    ],  # "417 Montgomery Street",
-                    "street2": AdminShipingDetails["data"][0]["addressDetails"][
-                        "house_bulding_name"
-                    ],  # "5th Floor",
-                    "city": AdminShipingDetails["data"][0]["addressDetails"][
-                        "city_name"
-                    ],  # "San Francisco",
-                    "state": AdminShipingDetails["data"][0]["addressDetails"][
-                        "state_code"
-                    ],  # "CA",
-                    "zip": AdminShipingDetails["data"][0]["addressDetails"][
-                        "pin_number"
-                    ],  # "94104",
-                    "country": AdminShipingDetails["data"][0]["addressDetails"][
-                        "country_code"
-                    ],  # "US",
-                    "phone": AdminShipingDetails["data"][0][
-                        "user_mobile"
-                    ],  # "4153334444",
-                    "email": AdminShipingDetails["data"][0][
-                        "user_email"
-                    ],  # "support@easypost.com",
-                },
-                parcel={
-                    "length": 20.2,
-                    "width": 10.9,
-                    "height": 5,
-                    "weight": 65.9,
-                },
+        if shipping_company_name == "EasyPostUps":
+            # client = easypost.EasyPostClient(api_key)
+            productsresult = list(
+                db["product"].find(
+                    {
+                        "_id": ObjectId(productDetails[0]["product_id"]),
+                        "deleted_at": None,
+                    }
+                )
             )
-            return {
-                "data": json.loads(json.dumps(shipment.to_dict())),
-                "shipping_company_response":json.loads(json.dumps(shipment.to_dict())),
-                "status": "success",
+
+            parcel = {
+                "length": float(productsresult[0].get("length", 20.2)),
+                "width": float(productsresult[0].get("width", 10.9)),
+                "height": float(productsresult[0].get("height", 5)),
+                "weight": float(productsresult[0].get("weight", 65.9)),
             }
 
-        else:
-            return {"message": "Please select address", "status": "error"}
+            if userAddressDetails is not None:
+                shipment = easyPostShippingService.easypost_order_fulfill(
+                    data, userAddressDetails, AdminShipingDetails, api_key, parcel
+                )
+
+                return {
+                    "data": {
+                        "id": shipment['data']["id"],
+                        "shipping_company_name": "EasyPostUps",
+                        "tracker": None,
+                    },
+                    "shipping_company_response": shipment['data'],
+                    "status": shipment['status'],
+                }
+
+            else:
+                return {"message": "Please select address", "status": "error"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -493,36 +550,6 @@ def get_created_shipment_details(shp_id: str):
         retrieved_shipment = client.shipment.retrieve(shp_id)
 
         return {"data": retrieved_shipment, "status": "success"}
-    except Exception as e:
-        return {"message": str(e), "status": "error"}
-
-
-def buy_shipment_for_deliver(shp_id: str, rates_index: int, deliveryCharges: int):
-    try:
-        AdminShipingDetails = view_by_status(1)
-        if (
-            AdminShipingDetails["status"] == "success"
-            and len(AdminShipingDetails["data"]) > 0
-        ):
-            api_key = AdminShipingDetails["data"][0]["api_key"]
-        else:
-            return {"message": "Shipping address not set", "status": "error"}
-
-        client = easypost.EasyPostClient(api_key)
-
-        retrieved_shipment = client.shipment.retrieve(shp_id)
-        # if deliveryCharges == 0:
-        #     final_rate = retrieved_shipment.lowest_rate()
-        # else:
-        #     final_rate = retrieved_shipment.rates[rates_index]
-
-        final_rate = retrieved_shipment.lowest_rate()
-        shipment = client.shipment.buy(
-            retrieved_shipment.id,
-            rate=final_rate,
-            # insurance=249.99,
-        )
-        return {"data": json.loads(json.dumps(shipment.to_dict())), "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -588,26 +615,34 @@ def create_return_request(request, order_id):
                 ):
                     address_id = AdminShipingDetails["data"][0]["address_id"]
                     pipeline = [
-                        { "$match": { "user_type":1, "address.id": address_id } },  # Match documents with address id = 1
-                        { "$project": { 
-                            "address": { "$filter": {
-                                "input": "$address",
-                                "as": "addr",
-                                "cond": { "$eq": ["$$addr.id", address_id] }  # Filter for address with id = 1
-                            }}
-                        }}
+                        {
+                            "$match": {"user_type": 1, "address.id": address_id}
+                        },  # Match documents with address id = 1
+                        {
+                            "$project": {
+                                "address": {
+                                    "$filter": {
+                                        "input": "$address",
+                                        "as": "addr",
+                                        "cond": {
+                                            "$eq": ["$$addr.id", address_id]
+                                        },  # Filter for address with id = 1
+                                    }
+                                }
+                            }
+                        },
                     ]
-                    result = list(db['user'].aggregate(pipeline))
+                    result = list(db["user"].aggregate(pipeline))
                     if result:
                         from_address = result
                     else:
                         return {"message": "No admin address found", "status": "error"}
                 else:
-                    return {"message": "Shipping address not set", "status": "error"}              
+                    return {"message": "Shipping address not set", "status": "error"}
                 return {
                     "message": {
-                        'buyer_address': orderData["data"][0]["address"],
-                        'from_address': from_address,
+                        "buyer_address": orderData["data"][0]["address"],
+                        "from_address": from_address,
                     },
                     "status": "success",
                 }
@@ -685,7 +720,9 @@ def get_shipping_label(shipping_id):
 
 
 def create_and_buy_shipment(data, userAddressdetails, productDetails):
-    created_shipment = create_shipment_and_get_rates(data, userAddressdetails, productDetails)
+    created_shipment = create_shipment_and_get_rates(
+        data, userAddressdetails, productDetails
+    )
     # print(created_shipment)
 
     if created_shipment["status"] == "success":
@@ -697,7 +734,15 @@ def create_and_buy_shipment(data, userAddressdetails, productDetails):
         if shipping_company_name and shipping_company_name == "Veracore":
             return created_shipment
 
-        return buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
+        if shipping_company_name and shipping_company_name == "EasyPostUps":
+            easypost_buy_shipment =  easyPostShippingService.buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
+            if easypost_buy_shipment['status'] == "success":
+                created_shipment['shipping_company_response'] = easypost_buy_shipment['data']
+                created_shipment['data']['tracker'] = easypost_buy_shipment['data']['tracker']['public_url']
+                return created_shipment
+            else:
+                return easypost_buy_shipment            
+
     else:
         return {"message": "unable to create shipment", "status": "error"}
 

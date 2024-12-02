@@ -1374,15 +1374,6 @@ def get_order_details_by_order_id(request, order_id):
     try:
         shipping_company_name = ""
 
-        AdminShipingDetails = shippingService.view_by_status(1)
-        if (
-            AdminShipingDetails["status"] == "success"
-            and len(AdminShipingDetails["data"]) > 0
-        ):
-            shipping_company_name = AdminShipingDetails["data"][0][
-                "shipping_company_name"
-            ]
-
         # print(order_id)
         pipeline = [
             {"$match": {"_id": ObjectId(order_id)}},
@@ -1485,30 +1476,64 @@ def get_order_details_by_order_id(request, order_id):
                     "payment_id": 1,
                     "getway_name": 1,
                     "created_at": 1,
+                    "shippingDetails": 1,
                 }
             },
         ]
         result = list(collection.aggregate(pipeline))
         if len(result) > 0:
+            # print(result)
 
-            if shipping_company_name == "USPS":
-                shipping_details = shippingService.get_shipping_label(
-                    result[0]["order_tracking_id"]
-                )
-                if shipping_details["status"] != "error":
-                    result[0]["shipping_details"] = shipping_details["data"]
-                else:
-                    result[0]["shipping_details"] = {}
+            AdminShipingDetails = shippingService.view_by_shipping_company_name(
+                result[0]["shippingDetails"]["data"]["shipping_company_name"]
+            )
+            if (
+                AdminShipingDetails["status"] == "success"
+                and len(AdminShipingDetails["data"]) > 0
+            ):
+                shipping_company_name = AdminShipingDetails["data"][0][
+                    "shipping_company_name"
+                ]
+
+            if shipping_company_name == "EasyPostUps":
+                # shippingDetails = shippingService.get_shipping_label(
+                #     result[0]["order_tracking_id"]
+                # )
+                # print(result[0])
+                # if shippingDetails["status"] != "error":
+                #     result[0]["shippingDetails"] = shippingDetails["data"]
+                # else:
+                #     result[0]["shippingDetails"] = {}
+                result[0]["shippingDetails"]["postage_label_url"] = result[0][
+                    "shippingDetails"
+                ]["shipping_company_response"]["postage_label"]["label_url"]
+                result[0]["shippingDetails"]["billing_type"] = result[0][
+                    "shippingDetails"
+                ]["shipping_company_response"]["selected_rate"]["billing_type"]
+                result[0]["shippingDetails"]["carrier"] = result[0]["shippingDetails"][
+                    "shipping_company_response"
+                ]["selected_rate"]["carrier"]
+                result[0]["shippingDetails"]["carrier_account_id"] = result[0][
+                    "shippingDetails"
+                ]["shipping_company_response"]["selected_rate"]["carrier_account_id"]
+                result[0]["shippingDetails"]["currency"] = result[0]["shippingDetails"][
+                    "shipping_company_response"
+                ]["selected_rate"]["currency"]
+                result[0]["shippingDetails"]["retail_rate"] = None
+                result[0]["shippingDetails"]["tracking_url"] = result[0][
+                    "shippingDetails"
+                ]["data"]["tracker"]
+
             elif shipping_company_name == "Veracore":
-                shipping_details = veracoreService.get_veracore_tracking_details(
+                shippingDetails = veracoreService.get_veracore_tracking_details(
                     result[0]["order_tracking_id"]
                 )
-                if shipping_details["status"] != "error":
-                    result[0]["shipping_details"] = shipping_details["data"]
+                if shippingDetails["status"] != "error":
+                    result[0]["shippingDetails"] = shippingDetails["data"]
                 else:
-                    result[0]["shipping_details"] = {}
+                    result[0]["shippingDetails"] = {}
             else:
-                result[0]["shipping_details"] = {}
+                result[0]["shippingDetails"] = {}
 
         return {"data": result, "status": "success"}
     except Exception as e:
@@ -1557,7 +1582,7 @@ def update_order_status(order_id, status, customer_id, user_type):
                     {
                         "$set": {
                             "status": status,
-                            "return_shipping_details": shippingDetails,
+                            "return_shippingDetails": shippingDetails,
                             "updated_at": str(
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ),

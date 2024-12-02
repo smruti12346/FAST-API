@@ -167,7 +167,8 @@ def get_veracore_product_details(product_id):
 def get_veracore_tracking_details(product_id):
     try:
         ShippingServiceDetails = {}
-        AdminShipingDetails = shippingService.view_by_status(1)
+        AdminShipingDetails = shippingService.view_by_shipping_company_name("Veracore") 
+        # AdminShipingDetails = shippingService.view_by_status(1)
         if (
             AdminShipingDetails["status"] == "success"
             and len(AdminShipingDetails["data"]) > 0
