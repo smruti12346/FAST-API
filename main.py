@@ -6,7 +6,7 @@ from os import getcwd
 from middleware.multiTenantMiddleware import TenantMiddleware
 from cors_config import setup_cors
 
-from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute, taxRoute, discountCouponRoute, smtpRoute
+from routes import componentRoute, userRoute, categoryRoute, productRoute, locationRoute, orderRoute, emailRoute , scriptsRoute, reportsRoute, shippingRoute, pageRoute, paymentRoute, wishlistRoute, taxRoute, discountCouponRoute, smtpRoute, warentyRoute
 
 GOOGLE_CLIENT_ID = (
     "758479761027-k52ng36gkobmr9944mqcggtfun8c4si1.apps.googleusercontent.com"
@@ -89,6 +89,9 @@ app.include_router(discountCouponRoute.router)
 
 # SMTP ROUTE START
 app.include_router(smtpRoute.router)
+
+# WARENTY ROUTE START
+app.include_router(warentyRoute.router)
 
 # EMAIL ROUTE START
 app.include_router(emailRoute.router)
