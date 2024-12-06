@@ -1372,6 +1372,7 @@ def get_all_orders_by_user(request, user_id, page, show_page):
 
 def get_order_details_by_order_id(request, order_id):
     try:
+        admindetails = shippingService.view_by_status(1)["data"][0]["addressDetails"]
         shipping_company_name = ""
 
         # print(order_id)
@@ -1534,6 +1535,7 @@ def get_order_details_by_order_id(request, order_id):
                     result[0]["shippingDetails"] = {}
             else:
                 result[0]["shippingDetails"] = {}
+            result[0]['admindetails'] = admindetails
 
         return {"data": result, "status": "success"}
     except Exception as e:
@@ -1966,6 +1968,10 @@ def get_order_invoice(request, data, background_tasks):
                                     <td style="text-align: right;">{result.get('order_details')['discountAmount']} ( {result.get('order_details')['discountInPercentage']}% )</td>
                                 </tr>
                                 <tr class="total">
+                                    <td colspan="4" style="text-align: right;">Tax Amount</td>
+                                    <td style="text-align: right;">{result.get('order_details')['taxAmount']} ( {result.get('order_details')['tax_percentage']}% )</td>
+                                </tr>
+                                <tr class="total">
                                     <td colspan="4" style="text-align: right;">Balance Due</td>
                                     <td style="text-align: right;">{result.get('order_details')['total_price']}</td>
                                 </tr>
@@ -2112,6 +2118,11 @@ def new_order_notification_to_admin(request, data, background_tasks):
                                             <td colspan="3" style="text-align: right;">Discount</td>
                                             <td>{ result.get('order_details')['discountAmount'] } 
                                                 ({ result.get('order_details')['discountInPercentage'] }%)</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td colspan="3" style="text-align: right;">Tax Amount</td>
+                                            <td>{ result.get('order_details')['taxAmount'] } 
+                                                ({ result.get('order_details')['tax_percentage'] }%)</td>
                                         </tr>
                                         <tr class="total-row">
                                             <td colspan="3" style="text-align: right;">Total Due</td>

@@ -163,6 +163,7 @@ def send_email(email: List[EmailStr], subject: str, body):
 
     AdminSMTPDetails = view_by_status(1)
     if AdminSMTPDetails["status"] == "success" and len(AdminSMTPDetails["data"]) > 0:
+        sender_name = AdminSMTPDetails["data"][0]["name"]
         smtp_server = AdminSMTPDetails["data"][0]["smtp_server"]
         smtp_port = AdminSMTPDetails["data"][0]["smtp_port"]
         smtp_username = AdminSMTPDetails["data"][0]["smtp_username"]
@@ -171,7 +172,7 @@ def send_email(email: List[EmailStr], subject: str, body):
     sender_email = smtp_username
 
     msg = MIMEMultipart()
-    msg["From"] = sender_email
+    msg["From"] = f"{sender_name} <{sender_email}>"
     msg["To"] = ", ".join(email)
     msg["Subject"] = subject
 
