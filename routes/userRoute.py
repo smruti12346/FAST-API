@@ -94,8 +94,8 @@ def change_user_status(user_id: str):
 
 
 @router.post("/users/login/", tags=["USER AUTHENTICATION"])
-def login_user(email: str, password: str):
-    return userService.login(email, password)
+def login_user(request:Request, email: str, password: str):
+    return userService.login(request, email, password)
 
 
 @router.get("/auth/google/", tags=["USER AUTHENTICATION"])

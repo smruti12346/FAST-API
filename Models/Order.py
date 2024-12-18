@@ -30,18 +30,19 @@ class OrderDetails(BaseModel):
 
 
 class AddressDetails(BaseModel):
+    full_name: str
+    phone_number: str
+    email: str
+    last_name: Optional[str] = None 
+    company_name: Optional[str] = None 
     country_code: str
     state_code: str
     city_name: str
     pin_number: str
-    full_name: str
-    last_name: Optional[str] = None 
-    company_name: Optional[str] = None 
-    phone_number: str
-    email: str
     roadName_area_colony: Optional[str] = None
     house_bulding_name: Optional[str] = None
     landmark: Optional[str] = None
+    id: Optional[int] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -76,7 +77,7 @@ class OrderModel(BaseModel):
     payment_id: Optional[str] = None
     product_id: str
     order_tracking_id: Optional[str] = None
-
+    address : AddressDetails
     bank_details: Optional[List] = []
     status: Optional[int] = Field(default=1)
     deleted_at: Optional[str] = None

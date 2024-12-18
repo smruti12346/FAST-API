@@ -35,6 +35,7 @@ class UserModel(BaseModel):
 class UserModelUpdate(BaseModel):
     name: Optional[str] = None
     mobile: Optional[str] = None
+    company_name: Optional[str] = None
     dob: Optional[str] = None
     profile_image : Optional[str] = None
     gender: Optional[str] = None
@@ -53,6 +54,7 @@ class UserModelAddressUpdate(BaseModel):
     full_name: str 
     last_name: Optional[str] = None 
     company_name: Optional[str] = None 
+    email: Optional[str] = None 
     phone_number: str
     country_code: str
     state_code: str
@@ -75,6 +77,7 @@ class UserModelAddressUpdate(BaseModel):
 class UserModelAddressUpdateById(BaseModel):
     full_name: str 
     phone_number: str
+    email: Optional[str] = None 
     country_code: str
     state_code: str
     city_name: str

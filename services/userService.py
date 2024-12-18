@@ -135,7 +135,7 @@ def get_user_by_id(request, id):
             {"$unwind": "$address"},
             {
                 "$lookup": {
-                    "from": "countries", 
+                    "from": "countries",
                     "localField": "address.country_code",
                     "foreignField": "code",
                     "as": "country_info",
@@ -147,6 +147,7 @@ def get_user_by_id(request, id):
                     "email": {"$first": "$email"},
                     "name": {"$first": "$name"},
                     "mobile": {"$first": "$mobile"},
+                    "company_name": {"$first": "$company_name"},
                     "dob": {"$first": "$dob"},
                     "gender": {"$first": "$gender"},
                     "profile_image": {"$first": "$profile_image"},
@@ -169,6 +170,8 @@ def get_user_by_id(request, id):
                             "primary_status": "$address.primary_status",
                             "status": "$address.status",
                             "id": "$address.id",
+                            "deleted_at": "$address.deleted_at",
+                            "email": "$address.email",
                             "country_info": {
                                 "$arrayElemAt": ["$country_info", 0]
                             },  # Example for country info if available
@@ -209,6 +212,7 @@ def get_user_by_id(request, id):
                     "email": 1,
                     "name": 1,
                     "mobile": 1,
+                    "company_name": 1,
                     "dob": 1,
                     "gender": 1,
                     "user_type": 1,
@@ -241,8 +245,8 @@ def merge_objects(obj1, obj2):
 def update(id, data):
     try:
         data = dict(data)
-        if data.get('profile_image') is None:
-            del data['profile_image']
+        if data.get("profile_image") is None:
+            del data["profile_image"]
 
         updated_data = merge_objects(data, get_user_by_id(Request, id)["data"][0])
         result = collection.update_one({"_id": ObjectId(id)}, {"$set": updated_data})
@@ -293,7 +297,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-def login(email, password: str):
+def login(request, email, password: str):
     try:
         user = check_email_exist(email)
         if user is not None:
@@ -307,6 +311,13 @@ def login(email, password: str):
                     "access_token": access_token,
                     "name": user["name"],
                     "email": email,
+                    "profile_image": (
+                        str(request.base_url)[:-1]
+                        + "/uploads/user/"
+                        + user["profile_image"]
+                        if user["profile_image"]
+                        else None
+                    ),
                     "user_type": user["user_type"],
                     "token_type": "bearer",
                     "status": "success",
@@ -401,29 +412,7 @@ def get_address_by_id(id):
 def update_address(id, email, data):
     try:
         data = dict(data)
-        # print(data)
-        # country_details = locationService.get_country_by_id(data["country_id"])["data"]
-        # state_details = locationService.get_states_by_state_id_and_country_id(
-        #     data["country_id"], data["state_id"]
-        # )["data"]
-        # city_details = locationService.get_city_by_city_id_country_id_and_state_id(
-        #     data["country_id"], data["state_id"], data["city_id"]
-        # )["data"]
-
-        # if country_details and len(country_details) > 0:
-        #     country_iso = country_details[0]["name"]
-        # else:
-        #     return {"message": "Country not found", "status": "error"}
-
-        # if state_details and len(state_details) > 0:
-        #     state_code = state_details[0]["state_code"]
-        # else:
-        #     return {"message": "Country not found", "status": "error"}
-
-        # if city_details and len(city_details) > 0:
-        #     city_name = city_details[0]["name"]
-        # else:
-        #     return {"message": "Country not found", "status": "error"}
+        addressUniqueId = None
 
         shippingDetails = shippingService.validate_address(
             data["roadName_area_colony"],
@@ -446,11 +435,13 @@ def update_address(id, email, data):
 
                 # Set the id and status based on the presence of the address list and "id"
                 if address_list and "id" in address_list[-1]:
-                    data["id"] = int(address_list[-1]["id"]) + 1
+                    addressUniqueId = int(address_list[-1]["id"]) + 1
+                    data["id"] = addressUniqueId
                     data["primary_status"] = (
                         0  # status = 0 if "id" exists in the last item
                     )
                 else:
+                    addressUniqueId = 1
                     data["id"] = 1
                     data["primary_status"] = 1  # status = 1 otherwise
             # print(data)
@@ -459,7 +450,11 @@ def update_address(id, email, data):
             )
 
             if result.modified_count == 1:
-                return {"message": "Address added successfully", "status": "success"}
+                return {
+                    "message": "Address added successfully",
+                    "status": "success",
+                    "addressUniqueId": addressUniqueId,
+                }
             else:
                 return {"message": "failed to add address", "status": "error"}
         else:
@@ -472,9 +467,6 @@ def update_address(id, email, data):
 def update_address_using_id(id, email, data):
     try:
         data = dict(data)
-        print(id)
-        print(email)
-        print(data)
         shippingDetails = shippingService.validate_address(
             data["roadName_area_colony"],
             data["city_name"],
@@ -512,7 +504,7 @@ def update_address_using_id(id, email, data):
                 {"$set": {f"address.$.{key}": value for key, value in data.items()}},
             )
             if result.modified_count == 1:
-                return {"message": "Address added successfully", "status": "success"}
+                return {"message": "Address added successfully", "addressUniqueId":address_id, "status": "success"}
             else:
                 return {"message": "failed to add address", "status": "error"}
         else:

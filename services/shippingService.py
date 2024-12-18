@@ -161,6 +161,7 @@ def view_by_status(status):
                     "user_name": "$UserDetails.name",
                     "user_email": "$UserDetails.email",
                     "user_mobile": "$UserDetails.mobile",
+                    "company_name": "$UserDetails.company_name",
                 }
             },
             {"$unwind": "$addressDetails"},
@@ -199,6 +200,7 @@ def view_by_status(status):
                     "user_name": 1,
                     "user_email": 1,
                     "user_mobile": 1,
+                    "company_name": 1,
                     "addressDetailsForCurrencyAndCountryName.name": 1,
                     "addressDetailsForCurrencyAndCountryName.iso2": 1,
                 }
@@ -217,7 +219,12 @@ def view_by_status(status):
 def view_by_shipping_company_name(shipping_company_name):
     try:
         pipeline = [
-            {"$match": {"shipping_company_name": shipping_company_name, "deleted_at": None}},
+            {
+                "$match": {
+                    "shipping_company_name": shipping_company_name,
+                    "deleted_at": None,
+                }
+            },
             {"$addFields": {"admin_id_obj": {"$toObjectId": "$admin_id"}}},
             {
                 "$lookup": {
@@ -289,7 +296,6 @@ def view_by_shipping_company_name(shipping_company_name):
             doc["_id"] = str(doc["_id"])
             data.append(doc)
         return {"data": data, "status": "success"}
-
 
         # result = list(
         #     collection.find(
@@ -387,7 +393,7 @@ def validate_address(street1, city, state, zip, country, email, phone):
         else:
             return {"message": "Shipping address not set", "status": "error"}
 
-        if shipping_company_name == "self":
+        if shipping_company_name == "self" or shipping_company_name == "EasyPostUps":
             return {
                 "data": {
                     "verifications": {"delivery": {"success": True}},
@@ -405,18 +411,18 @@ def validate_address(street1, city, state, zip, country, email, phone):
                 "status": "success",
             }
 
-        client = easypost.EasyPostClient(api_key)
-        address = client.address.create(
-            verify_strict=True,
-            street1=street1,  # "Bapuji Nagar Lane No 5 67",
-            city=city,  # "Bhubaneswar",
-            state=state,  # "OD",
-            zip=zip,  # "751009",
-            country=country,  # "IN",
-            email=email,  # "test@example.com",
-            phone=phone,  # "5555555555",
-        )
-        return {"data": json.loads(json.dumps(address.to_dict())), "status": "success"}
+        # client = easypost.EasyPostClient(api_key)
+        # address = client.address.create(
+        #     verify_strict=True,
+        #     street1=street1,  # "Bapuji Nagar Lane No 5 67",
+        #     city=city,  # "Bhubaneswar",
+        #     state=state,  # "OD",
+        #     zip=zip,  # "751009",
+        #     country=country,  # "IN",
+        #     email=email,  # "test@example.com",
+        #     phone=phone,  # "5555555555",
+        # )
+        # return {"data": json.loads(json.dumps(address.to_dict())), "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -457,16 +463,16 @@ def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=
                 # print(productDetails)
 
                 user_address = {
-                    "Prefix": None,
-                    "FirstName": userAddressDetails["full_name"],
-                    "LastName": "",
+                    "Prefix": "",
+                    "FirstName": "",
+                    "LastName": userAddressDetails["full_name"],
                     "Address1": userAddressDetails["roadName_area_colony"],
                     "City": userAddressDetails["city_name"],
                     "State": userAddressDetails["state_code"],
                     "PostalCode": userAddressDetails["pin_number"],
                     "Country": userAddressDetails["country_code"],
                     "Phone": userAddressDetails["phone_number"],
-                    "Email": None,
+                    "Email": "",
                 }
 
                 productsresult = list(
@@ -521,12 +527,12 @@ def create_shipment_and_get_rates(data, userAddressDetails=None, productDetails=
 
                 return {
                     "data": {
-                        "id": shipment['data']["id"],
+                        "id": shipment["data"]["id"],
                         "shipping_company_name": "EasyPostUps",
                         "tracker": None,
                     },
-                    "shipping_company_response": shipment['data'],
-                    "status": shipment['status'],
+                    "shipping_company_response": shipment["data"],
+                    "status": shipment["status"],
                 }
 
             else:
@@ -570,32 +576,6 @@ def track_order_by_id(trk_id):
         return {"message": str(e), "status": "error"}
 
 
-# def create_return_request(buyer_address, from_address, parcel_id):
-#     try:
-#         AdminShipingDetails = view_by_status(1)
-#         if (
-#             AdminShipingDetails["status"] == "success"
-#             and len(AdminShipingDetails["data"]) > 0
-#         ):
-#             api_key = AdminShipingDetails["data"][0]["api_key"]
-#         else:
-#             return {"message": "Shipping address not set", "status": "error"}
-
-#         client = easypost.EasyPostClient(api_key)
-#         shipment = client.shipment.create(
-#             to_address={"id": buyer_address},
-#             from_address={"id": from_address},
-#             parcel={"id": parcel_id},
-#             is_return=True,
-#         )
-
-
-#         return {
-#             "message": json.loads(json.dumps(shipment.to_dict())),
-#             "status": "success",
-#         }
-#     except Exception as e:
-#         return {"message": str(e), "status": "error"}
 def create_return_request(request, order_id):
     try:
 
@@ -606,7 +586,10 @@ def create_return_request(request, order_id):
             if (
                 shippingData["status"] == "success"
                 and shippingData["data"]["shipping_company_name"]
-                and shippingData["data"]["shipping_company_name"] == "self"
+                and (
+                    shippingData["data"]["shipping_company_name"] == "self"
+                    or shippingData["data"]["shipping_company_name"] == "Veracore"
+                )
             ):
                 AdminShipingDetails = view_by_status(1)
                 if (
@@ -647,10 +630,18 @@ def create_return_request(request, order_id):
                     "status": "success",
                 }
 
-            if shippingData["status"] == "success" and len(shippingData["data"]) > 0:
-                buyer_address = shippingData["data"]["buyer_address"]["id"]
-                from_address = shippingData["data"]["from_address"]["id"]
-                parcel_id = shippingData["data"]["parcel"]["id"]
+            if (
+                shippingData["status"] == "success"
+                and shippingData["data"]["shipping_company_name"]
+                and shippingData["data"]["shipping_company_name"] == "EasyPostUps"
+            ):
+                buyer_address = shippingData["shipping_company_response"][
+                    "buyer_address"
+                ]["id"]
+                from_address = shippingData["shipping_company_response"][
+                    "from_address"
+                ]["id"]
+                parcel_id = shippingData["shipping_company_response"]["parcel"]["id"]
 
                 AdminShipingDetails = view_by_status(1)
                 if (
@@ -735,13 +726,19 @@ def create_and_buy_shipment(data, userAddressdetails, productDetails):
             return created_shipment
 
         if shipping_company_name and shipping_company_name == "EasyPostUps":
-            easypost_buy_shipment =  easyPostShippingService.buy_shipment_for_deliver(created_shipment["data"]["id"], 0, 0)
-            if easypost_buy_shipment['status'] == "success":
-                created_shipment['shipping_company_response'] = easypost_buy_shipment['data']
-                created_shipment['data']['tracker'] = easypost_buy_shipment['data']['tracker']['public_url']
+            easypost_buy_shipment = easyPostShippingService.buy_shipment_for_deliver(
+                created_shipment["data"]["id"], 0, 0
+            )
+            if easypost_buy_shipment["status"] == "success":
+                created_shipment["shipping_company_response"] = easypost_buy_shipment[
+                    "data"
+                ]
+                created_shipment["data"]["tracker"] = easypost_buy_shipment["data"][
+                    "tracker"
+                ]["public_url"]
                 return created_shipment
             else:
-                return easypost_buy_shipment            
+                return easypost_buy_shipment
 
     else:
         return {"message": "unable to create shipment", "status": "error"}

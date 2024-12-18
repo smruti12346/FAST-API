@@ -520,30 +520,36 @@ def order_create(customer_details, country_code, product_details):
         if len(order_models_dict_array) == 0:
             return {"message": "please choose product", "status": "error"}
 
+        address = order_models_dict_array[0]["address"]
+        if address["id"] == None:
+            userService.update_address(
+                customer_details["_id"], customer_details["email"], address
+            )
+
         AdminShipingDetails = shippingService.view_by_status(1)
         adminEmail = AdminShipingDetails["data"][0]["addressDetails"]["email"]
 
-        address = get_address_by_id(str(customer_details["_id"]))
-        if address["status"] == "success":
-            primary_status_items = (
-                [
-                    item
-                    for item in address["data"]
-                    if item["primary_status"] == 1
-                    and item.get("deleted_at") is None
-                    and item["status"] == 1
-                ]
-                if address.get("data")
-                else []
-            )
-            if len(primary_status_items) == 0:
-                return {
-                    "message": "Please enter your address",
-                    "status": "error",
-                }
+        # address = get_address_by_id(str(customer_details["_id"]))
+        # if address["status"] == "success":
+        #     primary_status_items = (
+        #         [
+        #             item
+        #             for item in address["data"]
+        #             if item["primary_status"] == 1
+        #             and item.get("deleted_at") is None
+        #             and item["status"] == 1
+        #         ]
+        #         if address.get("data")
+        #         else []
+        #     )
+        #     if len(primary_status_items) == 0:
+        #         return {
+        #             "message": "Please enter your address",
+        #             "status": "error",
+        #         }
 
         for data in order_models_dict_array:
-            data["address"] = primary_status_items[0]
+            data["address"] = address
             data["status"] = 1
             data["created_by"] = str(customer_details["_id"])
             data["customer_id"] = str(customer_details["_id"])
@@ -661,10 +667,8 @@ def order_create(customer_details, country_code, product_details):
                 "email": [adminEmail],
                 "order_id": str(order_id),
             }
-            eml = get_order_invoice(Request, data, BackgroundTasks)
-            print(eml)
-            eml2 = new_order_notification_to_admin(Request, data, BackgroundTasks)
-            print(eml2)
+            get_order_invoice(Request, data, BackgroundTasks)
+            # new_order_notification_to_admin(Request, data, BackgroundTasks)
         # email integration for invoice  start
         return {
             "message": "Order placed successfully",
@@ -1105,7 +1109,12 @@ def get_all_orders(request, page, show_page, search_query):
                     "customer_details.email": "$customer_details.email",
                 }
             },
-            {"$sort": {"created_at": -1}},
+            {
+                "$addFields": {
+                    "created_at_date": {"$toDate": "$order_details.order_date"}
+                }
+            },
+            {"$sort": {"created_at_date": -1}},
             {
                 "$project": {
                     "_id": {"$toString": "$_id"},
@@ -1478,6 +1487,7 @@ def get_order_details_by_order_id(request, order_id):
                     "getway_name": 1,
                     "created_at": 1,
                     "shippingDetails": 1,
+                    "status_updates": 1,
                 }
             },
         ]
@@ -1535,7 +1545,7 @@ def get_order_details_by_order_id(request, order_id):
                     result[0]["shippingDetails"] = {}
             else:
                 result[0]["shippingDetails"] = {}
-            result[0]['admindetails'] = admindetails
+            result[0]["admindetails"] = admindetails
 
         return {"data": result, "status": "success"}
     except Exception as e:
@@ -1569,6 +1579,8 @@ def update_payment_status(order_id):
 
 def update_order_status(order_id, status, customer_id, user_type):
     try:
+        current_datetime = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
         if user_type != 1:
             db_document = collection.find_one(
                 {"_id": ObjectId(order_id), "customer_id": customer_id}
@@ -1577,6 +1589,7 @@ def update_order_status(order_id, status, customer_id, user_type):
                 return {"message": "Please Login First", "status": "error"}
 
         if status == 8:
+
             shippingDetails = shippingService.create_return_request(Request, order_id)
             if shippingDetails["status"] == "success":
                 result = collection.update_one(
@@ -1588,7 +1601,14 @@ def update_order_status(order_id, status, customer_id, user_type):
                             "updated_at": str(
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ),
-                        }
+                        },
+                        "$push": {
+                            "status_updates": {
+                                "status": status,
+                                "timestamp": current_datetime,
+                                "updated_by": customer_id,
+                            }
+                        },
                     },
                 )
                 if result.modified_count == 1:
@@ -1613,7 +1633,14 @@ def update_order_status(order_id, status, customer_id, user_type):
                             "updated_at": str(
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ),
-                        }
+                        },
+                        "$push": {
+                            "status_updates": {
+                                "status": status,
+                                "timestamp": current_datetime,
+                                "updated_by": customer_id,
+                            }
+                        },
                     },
                 )
                 if result.modified_count == 1:
@@ -1626,13 +1653,19 @@ def update_order_status(order_id, status, customer_id, user_type):
             else:
                 return paymentDetails
 
+        # =========================== OTHER STATUS UPDATE ============================
+        print(current_datetime)
         result = collection.update_one(
             {"_id": ObjectId(order_id)},
             {
-                "$set": {
-                    "status": status,
-                    "updated_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                }
+                "$set": {"status": status, "updated_at": current_datetime},
+                "$push": {
+                    "status_updates": {
+                        "status": status,
+                        "timestamp": current_datetime,
+                        "updated_by": customer_id,
+                    }
+                },
             },
         )
         if result.modified_count == 1:
@@ -1725,7 +1758,12 @@ def get_all_orders_status_wise(request, statusArr, page, show_page):
                     "customer_details.email": "$customer_details.email",
                 }
             },
-            {"$sort": {"created_at": -1}},
+            {
+                "$addFields": {
+                    "created_at_date": {"$toDate": "$order_details.order_date"}
+                }
+            },
+            {"$sort": {"created_at_date": -1}},
             {
                 "$project": {
                     "_id": {"$toString": "$_id"},
@@ -1780,7 +1818,9 @@ def get_all_orders_count_status_wise():
 
 def get_order_invoice(request, data, background_tasks):
     try:
-        admindetails = shippingService.view_by_status(1)["data"][0]["addressDetails"]
+        shippingServiceDetails = shippingService.view_by_status(1)["data"][0]
+        admindetails = shippingServiceDetails["addressDetails"]
+        company_name = shippingServiceDetails["company_name"]
         data = dict(data)
         results = get_order_details_by_order_id(request, data["order_id"])
 
@@ -1905,7 +1945,7 @@ def get_order_invoice(request, data, background_tasks):
                                     <td colspan="5">
                                         <div class="clearfix">
                                             <div class="left">
-                                                <h2>{admindetails.get('full_name', '')}</h2>
+                                                <h2>{company_name}</h2>
                                                 <p>{admindetails.get('roadName_area_colony', '')}<br>
                                                 {admindetails.get('city_name', '')} {admindetails.get('pin_number', '')} {admindetails.get('country_code', '')}</p>
                                             </div>
