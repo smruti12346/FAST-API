@@ -668,7 +668,7 @@ def order_create(customer_details, country_code, product_details):
                 "order_id": str(order_id),
             }
             get_order_invoice(Request, data, BackgroundTasks)
-            # new_order_notification_to_admin(Request, data, BackgroundTasks)
+            new_order_notification_to_admin(Request, data, BackgroundTasks)
         # email integration for invoice  start
         return {
             "message": "Order placed successfully",
