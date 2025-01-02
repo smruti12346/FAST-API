@@ -116,14 +116,108 @@ def get_user_by_name(user_name):
         return {"message": str(e), "status": "error"}
 
 
-def get_user_by_user_type(user_type):
+def get_user_by_user_type(request, user_type):
     try:
-        result = collection.find({"user_type": user_type})
-        data = []
-        for doc in result:
-            doc["_id"] = str(doc["_id"])
-            data.append(doc)
-        return {"data": data, "status": "success"}
+        pipeline = [
+            {"$match": {"user_type": user_type, "deleted_at": None}},
+            {"$unwind": "$address"},
+            {
+                "$lookup": {
+                    "from": "countries",
+                    "localField": "address.country_code",
+                    "foreignField": "code",
+                    "as": "country_info",
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "email": {"$first": "$email"},
+                    "name": {"$first": "$name"},
+                    "mobile": {"$first": "$mobile"},
+                    "company_name": {"$first": "$company_name"},
+                    "dob": {"$first": "$dob"},
+                    "gender": {"$first": "$gender"},
+                    "profile_image": {"$first": "$profile_image"},
+                    "user_type": {"$first": "$user_type"},
+                    "status": {"$first": "$status"},
+                    "created_at": {"$first": "$created_at"},
+                    "updated_at": {"$first": "$updated_at"},
+                    "created_date": {"$first": "$created_date"},
+                    "address": {
+                        "$push": {
+                            "full_name": "$address.full_name",
+                            "phone_number": "$address.phone_number",
+                            "country_code": "$address.country_code",
+                            "state_code": "$address.state_code",
+                            "city_name": "$address.city_name",
+                            "pin_number": "$address.pin_number",
+                            "roadName_area_colony": "$address.roadName_area_colony",
+                            "house_bulding_name": "$address.house_bulding_name",
+                            "landmark": "$address.landmark",
+                            "primary_status": "$address.primary_status",
+                            "status": "$address.status",
+                            "id": "$address.id",
+                            "deleted_at": "$address.deleted_at",
+                            "email": "$address.email",
+                            "country_info": {
+                                "$arrayElemAt": ["$country_info", 0]
+                            },  # Example for country info if available
+                        }
+                    },
+                }
+            },
+            # Add fields for image URLs
+            {
+                "$addFields": {
+                    "profile_image_url": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/user/",
+                            "$profile_image",
+                        ]
+                    },
+                    "profile_image_url_100": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/user/100/",
+                            "$profile_image",
+                        ]
+                    },
+                    "profile_image_url_300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/user/300/",
+                            "$profile_image",
+                        ]
+                    },
+                }
+            },
+            # Format the _id field as a string
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "email": 1,
+                    "name": 1,
+                    "mobile": 1,
+                    "company_name": 1,
+                    "dob": 1,
+                    "gender": 1,
+                    "user_type": 1,
+                    "status": 1,
+                    "created_at": 1,
+                    "created_date": 1,
+                    "updated_at": 1,
+                    "address": 1,  # Include address array
+                    "profile_image_url": 1,
+                    "profile_image_url_100": 1,
+                    "profile_image_url_300": 1,
+                }
+            },
+            {"$limit": 1},
+        ]
+        result = list(collection.aggregate(pipeline))
+        return {"data": result, "status": "success"}
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -504,7 +598,11 @@ def update_address_using_id(id, email, data):
                 {"$set": {f"address.$.{key}": value for key, value in data.items()}},
             )
             if result.modified_count == 1:
-                return {"message": "Address added successfully", "addressUniqueId":address_id, "status": "success"}
+                return {
+                    "message": "Address added successfully",
+                    "addressUniqueId": address_id,
+                    "status": "success",
+                }
             else:
                 return {"message": "failed to add address", "status": "error"}
         else:

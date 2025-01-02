@@ -39,6 +39,7 @@ class AddressDetails(BaseModel):
     state_code: str
     city_name: str
     pin_number: str
+    status: Optional[int] = Field(default=1)
     roadName_area_colony: Optional[str] = None
     house_bulding_name: Optional[str] = None
     landmark: Optional[str] = None

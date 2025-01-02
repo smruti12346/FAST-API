@@ -34,6 +34,10 @@ def get_all(page: int, show_page: int):
 def get_user_by_name(user_name: str):
     return userService.get_user_by_name(user_name)
 
+@router.get("/get-user-by-user-type/{user_type}", tags=["USER MANAGEMENT"])
+def get_user_by_user_type(request: Request, user_type: int):
+    return userService.get_user_by_user_type(request, user_type)
+
 
 @router.get("/get-users-by-id", tags=["USER MANAGEMENT"])
 def get_user_by_token(
