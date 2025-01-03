@@ -40,15 +40,74 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
                 ]
             }
         )
-        return {
+        total_order_count = db["order"].count_documents(
+            {
+                "$and": [
+                    {"status": {"$in": [1, 5, 6]}},
+                    {"created_date": {"$gte": start_date, "$lte": end_date}},
+                ]
+            }
+        )
+
+
+
+
+
+        # Aggregation pipeline for user and order stats
+        pipeline = [
+            {
+                "$match": {
+                    "created_date": {"$gte": start_date, "$lte": end_date}
+                }
+            },
+            {
+                "$facet": {
+                    "user_stats": [
+                        {
+                            "$match": {
+                                "user_type": {"$ne": 1},
+                                "deleted_at": None
+                            }
+                        },
+                        {"$group": {"_id": None, "user_count": {"$sum": 1}}}
+                    ],
+                    "order_stats": [
+                        {
+                            "$group": {
+                                "_id": "$status",
+                                "count": {"$sum": 1},
+                                "total_price_sum": {"$sum": "$order_details.total_price"}
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+
+        # Execute the aggregation pipeline
+        result = list(db["order"].aggregate(pipeline))
+
+        # Process the results
+        user_count = result[0]["user_stats"][0]["user_count"] if result[0]["user_stats"] else 0
+        order_stats = {stat["_id"]: stat for stat in result[0]["order_stats"]}
+
+        # Prepare the output
+        output = {
             "data": {
                 "user_count": user_count,
-                "order_placed_count": order_placed_count,
-                "order_shipped": order_shipped,
-                "return_request_count": return_request_count,
+                "order_placed_count": order_stats.get(1, {}).get("count", 0),
+                "order_placed_price_sum": order_stats.get(1, {}).get("total_price_sum", 0),
+                "order_shipped_count": order_stats.get(5, {}).get("count", 0),
+                "order_shipped_price_sum": order_stats.get(5, {}).get("total_price_sum", 0),
+                "return_request_count": order_stats.get(7, {}).get("count", 0),
+                "return_request_price_sum": order_stats.get(7, {}).get("total_price_sum", 0),
+                "total_order_count": sum(stat["count"] for stat in order_stats.values()),
+                "total_order_price_sum": sum(stat["total_price_sum"] for stat in order_stats.values())
             },
-            "status": "success",
+            "status": "success"
         }
+        # print(output)
+        return output
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

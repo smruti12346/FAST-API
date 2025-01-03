@@ -85,7 +85,7 @@ async def update_product(
     product_id: str,
     product_data: ProductUpdateModel,
     cover_image: Optional[UploadFile] = File(None),
-    images: Optional[List[UploadFile]] = File(None)
+    images: List[UploadFile] = File(None),
 ):
 
     try:

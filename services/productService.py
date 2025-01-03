@@ -9,6 +9,7 @@ import uuid
 from services.common import resize_image
 from pydantic import Field
 from datetime import datetime
+import ast
 
 collection = db["product"]
 
@@ -24,6 +25,7 @@ def generate_sku(product_name, unique_id):
 def create(product_data):
     try:
         product_data = dict(product_data)
+        del product_data["multi_delete_images_array"]
         product_slug_count = collection.count_documents(
             {"slug": product_data["slug"], "deleted_at": None}
         )
@@ -292,6 +294,7 @@ def get_all_product(request, page, show_page, search_query):
 def get_products_slugs_wise(request, slugs):
     try:
         import ast
+
         pipeline = [
             {
                 "$match": {
@@ -695,18 +698,45 @@ def get_product_count_by_category_id(category_id):
 
 def update(id, data):
     try:
+        # data = dict(data)
+        # if data["images"] == None:
+        #     del data["images"]
+        # if data["cover_image"] == None:
+        #     del data["cover_image"]
+
+        # result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
+        # if result.modified_count == 1:
+        #     return {"message": "data updated successfully", "status": "success"}
+        # else:
+        #     return {"message": "failed to update", "status": "error"}
+
         data = dict(data)
-        if data["images"] == None:
+        actual_list = ast.literal_eval(data["multi_delete_images_array"])
+        del data["multi_delete_images_array"]
+
+        if data.get("images") is None:
             del data["images"]
-        if data["cover_image"] == None:
+        if data.get("cover_image") is None:
             del data["cover_image"]
 
-        print(data)
-        result = collection.update_one({"_id": ObjectId(id)}, {"$set": data})
-        if result.modified_count == 1:
-            return {"message": "data updated successfully", "status": "success"}
-        else:
-            return {"message": "failed to update", "status": "error"}
+        if "images" in data and isinstance(data["images"], list):
+            new_images = data.pop("images")
+            push_result = collection.update_one(
+                {"_id": ObjectId(id)}, {"$push": {"images": {"$each": new_images}}}
+            )
+            if push_result.modified_count == 0:
+                return {
+                    "message": "Failed to update or no changes made",
+                    "status": "error",
+                }
+
+        collection.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": data, "$pull": {"images": {"$in": actual_list}}},
+            upsert=False,
+        )
+        return {"message": "Data updated successfully", "status": "success"}
+
     except Exception as e:
         return {"message": str(e), "status": "error"}
 

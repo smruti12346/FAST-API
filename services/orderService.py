@@ -1932,10 +1932,63 @@ def get_order_invoice(request, data, background_tasks):
                                 width: 40%;
                                 text-align: right;
                             }}
-                            
+
                             .clearfix {{
                                 overflow: auto;
                             }}
+
+                            .text-center{{
+                                text-align: center;
+                            }}
+
+                            .product-card {{
+                                display: flex;
+                                align-items: flex-start;
+                                gap: 16px;
+                                padding: 16px;
+                                flex-direction: row;
+                                justify-content: center;
+                            }}
+
+                            .image-section img {{
+                                width: 100px;
+                                height: auto;
+                                border-radius: 8px;
+                            }}
+
+                            .details-section {{
+                                flex: 1;
+                                margin-left: 10px;
+                            }}
+
+                            .details-section h4 {{
+                                font-size: 16px;
+                                margin: 0 0 8px;
+                                color: #333;
+                            }}
+
+                            .details-section .delivery {{
+                                color: green;
+                                font-size: 14px;
+                                margin: 4px 0;
+                            }}
+
+                            .details-section .delivery span {{
+                                font-weight: bold;
+                            }}
+
+                            .details-section .seller {{
+                                font-size: 14px;
+                                color: #555;
+                                margin: 4px 0;
+                            }}
+
+                            .details-section .quantity {{
+                                font-size: 14px;
+                                color: #555;
+                                margin: 4px 0;
+                            }}
+                            
                         </style>
                     </head>
                     <body>
@@ -1981,8 +2034,8 @@ def get_order_invoice(request, data, background_tasks):
                                 </tr>
                                 <tr class="heading">
                                     <td>#</td>
-                                    <td>Item & Description</td>
-                                    <td>Qty</td>
+                                    <td class="text-center">Item & Description</td>
+
                                     <td>Rate</td>
                                     <td>Amount</td>
                                 </tr>
@@ -1990,29 +2043,38 @@ def get_order_invoice(request, data, background_tasks):
                                 
                                 <tr class="item">
                                     <td>1</td>
-                                    <td>{result.get('product_details')['name']}</td>
-                                    <td>{result.get('order_details')['total_quantity']}</td>
+                                    <td>
+                                        <div class="product-card">
+                                            <div class="image-section">
+                                            <img src="{result.get('product_details')['imageUrl']}" alt="{result.get('product_details')['name']}">
+                                            </div>
+                                            <div class="details-section">
+                                            <h4>{result.get('product_details')['name']}</h4>
+                                            <p class="quantity">Qty: {result.get('order_details')['total_quantity']}</p>
+                                            </div>
+                                        </div>                                
+                                    </td>
                                     <td>{result.get('order_details')['sale_price']}</td>
                                     <td>{result.get('order_details')['sale_price']}</td>
                                 </tr>
                                 <tr class="total">
-                                    <td colspan="4" style="text-align: right;">Sub Total</td>
+                                    <td colspan="3" style="text-align: right;">Sub Total</td>
                                     <td style="text-align: right;">{result.get('order_details')['sale_price']}</td>
                                 </tr>
                                 <tr class="total">
-                                    <td colspan="4" style="text-align: right;">Shipping</td>
+                                    <td colspan="3" style="text-align: right;">Shipping</td>
                                     <td style="text-align: right;">{result.get('order_details')['deliveryCharges']}</td>
                                 </tr>
                                 <tr class="total">
-                                    <td colspan="4" style="text-align: right;">Discount</td>
+                                    <td colspan="3" style="text-align: right;">Discount</td>
                                     <td style="text-align: right;">{result.get('order_details')['discountAmount']} ( {result.get('order_details')['discountInPercentage']}% )</td>
                                 </tr>
                                 <tr class="total">
-                                    <td colspan="4" style="text-align: right;">Tax Amount</td>
+                                    <td colspan="3" style="text-align: right;">Tax Amount</td>
                                     <td style="text-align: right;">{result.get('order_details')['taxAmount']} ( {result.get('order_details')['tax_percentage']}% )</td>
                                 </tr>
                                 <tr class="total">
-                                    <td colspan="4" style="text-align: right;">Balance Due</td>
+                                    <td colspan="3" style="text-align: right;">Balance Due</td>
                                     <td style="text-align: right;">{result.get('order_details')['total_price']}</td>
                                 </tr>
                             </table>
