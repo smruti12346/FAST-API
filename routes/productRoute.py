@@ -204,3 +204,7 @@ def get_products_wise_reviews(request: Request, page: int, show_page: int):
 @router.get("/get-product-review/{product_id}", tags=["PRODUCT REVIEW MANAGEMENT"])
 def get_product_review(request: Request, product_id: str):
     return productService.get_product_review(request, product_id)
+
+@router.get("/get-product-review-by-slug/{product_slug}", tags=["PRODUCT REVIEW MANAGEMENT"])
+def get_product_review_by_slug(request: Request, product_slug: str):
+    return productService.get_product_review_by_slug(request, product_slug)

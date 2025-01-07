@@ -979,6 +979,67 @@ def get_product_review(request, product_id):
         return {"message": str(e), "status": "error"}
 
 
+def get_product_review_by_slug(request, product_slug):
+    try:
+
+        db_document = db["product"].find_one({"slug": product_slug})
+
+
+
+        pipeline = [
+            {"$match": {"status": 1, "product_id": str(db_document['_id'])}},
+            {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
+            {
+                "$lookup": {
+                    "from": "user",
+                    "localField": "customer_id_obj",
+                    "foreignField": "_id",
+                    "as": "customer_details",
+                }
+            },
+            {
+                "$addFields": {
+                    "imageUrl": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/review/",
+                            "$image",
+                        ]
+                    },
+                    "imageUrl300": {
+                        "$concat": [
+                            str(request.base_url)[:-1],
+                            "/uploads/review/300/",
+                            "$image",
+                        ]
+                    },
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "customer_id": 1,
+                    "product_id": {"$toString": "$product_id"},
+                    "point": 1,
+                    "review": 1,
+                    "image": 1,
+                    "imageUrl": 1,
+                    "imageUrl300": 1,
+                    "status": 1,
+                    "order_tracking_id": 1,
+                    "status": 1,
+                    "customer_details.name": 1,
+                    "customer_details.email": 1,
+                    "created_at": 1,
+                }
+            },
+        ]
+        result = list(db["review"].aggregate(pipeline))
+        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
 def get_products_wise_reviews(request, page, show_page):
     try:
         pipeline = [
