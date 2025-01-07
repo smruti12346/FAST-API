@@ -13,51 +13,45 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
                 ]
             }
         )
+        # order_placed_count = db["order"].count_documents(
+        #     {
+        #         "$and": [
+        #             {"status": 1},
+        #             {"created_date": {"$gte": start_date, "$lte": end_date}},
+        #         ]
+        #     }
+        # )
 
-        order_placed_count = db["order"].count_documents(
-            {
-                "$and": [
-                    {"status": 1},
-                    {"created_date": {"$gte": start_date, "$lte": end_date}},
-                ]
-            }
-        )
+        # order_shipped = db["order"].count_documents(
+        #     {
+        #         "$and": [
+        #             {"status": 5},
+        #             {"created_date": {"$gte": start_date, "$lte": end_date}},
+        #         ]
+        #     }
+        # )
 
-        order_shipped = db["order"].count_documents(
-            {
-                "$and": [
-                    {"status": 5},
-                    {"created_date": {"$gte": start_date, "$lte": end_date}},
-                ]
-            }
-        )
-
-        return_request_count = db["order"].count_documents(
-            {
-                "$and": [
-                    {"status": 7},
-                    {"created_date": {"$gte": start_date, "$lte": end_date}},
-                ]
-            }
-        )
-        total_order_count = db["order"].count_documents(
-            {
-                "$and": [
-                    {"status": {"$in": [1, 5, 6]}},
-                    {"created_date": {"$gte": start_date, "$lte": end_date}},
-                ]
-            }
-        )
-
-
-
-
-
+        # return_request_count = db["order"].count_documents(
+        #     {
+        #         "$and": [
+        #             {"status": 7},
+        #             {"created_date": {"$gte": start_date, "$lte": end_date}},
+        #         ]
+        #     }
+        # )
+        # total_order_count = db["order"].count_documents(
+        #     {
+        #         "$and": [
+        #             {"status": {"$in": [1, 5, 6]}},
+        #             {"created_date": {"$gte": start_date, "$lte": end_date}},
+        #         ]
+        #     }
+        # )
         # Aggregation pipeline for user and order stats
         pipeline = [
             {
                 "$match": {
-                    "created_date": {"$gte": start_date, "$lte": end_date}
+                    "order_details.order_date": {"$gte": start_date, "$lte": end_date}
                 }
             },
             {
@@ -95,14 +89,14 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
         output = {
             "data": {
                 "user_count": user_count,
-                "order_placed_count": order_stats.get(1, {}).get("count", 0),
-                "order_placed_price_sum": order_stats.get(1, {}).get("total_price_sum", 0),
-                "order_shipped_count": order_stats.get(5, {}).get("count", 0),
-                "order_shipped_price_sum": order_stats.get(5, {}).get("total_price_sum", 0),
-                "return_request_count": order_stats.get(7, {}).get("count", 0),
-                "return_request_price_sum": order_stats.get(7, {}).get("total_price_sum", 0),
-                "total_order_count": sum(stat["count"] for stat in order_stats.values()),
-                "total_order_price_sum": sum(stat["total_price_sum"] for stat in order_stats.values())
+                "order_placed_count": round(order_stats.get(1, {}).get("count", 0), 2),
+                "order_placed_price_sum": round(order_stats.get(1, {}).get("total_price_sum", 0), 2),
+                "order_shipped_count": round(order_stats.get(5, {}).get("count", 0), 2),
+                "order_shipped_price_sum": round(order_stats.get(5, {}).get("total_price_sum", 0), 2),
+                "return_request_count": round(order_stats.get(7, {}).get("count", 0), 2),
+                "return_request_price_sum": round(order_stats.get(7, {}).get("total_price_sum", 0), 2),
+                "total_order_count": round(sum(stat["count"] for stat in order_stats.values()), 2),
+                "total_order_price_sum": round(sum(stat["total_price_sum"] for stat in order_stats.values()), 2)
             },
             "status": "success"
         }

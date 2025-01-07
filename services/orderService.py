@@ -553,6 +553,8 @@ def order_create(customer_details, country_code, product_details):
             data["status"] = 1
             data["created_by"] = str(customer_details["_id"])
             data["customer_id"] = str(customer_details["_id"])
+            data["created_date"] = str(datetime.now().strftime("%Y-%m-%d"))
+            data["created_time"] = str(datetime.now().strftime("%H:%M:%S"))
             data["order_details"]["order_date"] = str(
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
