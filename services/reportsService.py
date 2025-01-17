@@ -109,8 +109,8 @@ def user_pending_and_placed_order_return_request_count(start_date, end_date):
 def get_data_using_start_date_end_date(start_date, end_date):
     try:
         pipeline = [
-            {"$match": {"created_date": {"$gte": start_date, "$lte": end_date}}},
-            {"$group": {"_id": "$created_date", "count": {"$sum": 1}}},
+            {"$match": {"order_details.order_date": {"$gte": start_date, "$lte": end_date}}},
+            {"$group": {"_id": "$order_details.order_date", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}},
         ]
         results = list(db["order"].aggregate(pipeline))

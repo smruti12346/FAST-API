@@ -983,11 +983,8 @@ def get_product_review_by_slug(request, product_slug):
     try:
 
         db_document = db["product"].find_one({"slug": product_slug})
-
-
-
         pipeline = [
-            {"$match": {"status": 1, "product_id": str(db_document['_id'])}},
+            {"$match": {"status": 1, "product_id": str(db_document["_id"])}},
             {"$addFields": {"customer_id_obj": {"$toObjectId": "$customer_id"}}},
             {
                 "$lookup": {
@@ -997,21 +994,47 @@ def get_product_review_by_slug(request, product_slug):
                     "as": "customer_details",
                 }
             },
+            {"$unwind": "$customer_details"},
             {
                 "$addFields": {
+                    "customer_details.profileImage": {
+                        "$cond": {
+                            "if": {"$ne": ["$customer_details.profile_image", None]},
+                            "then": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/user/",
+                                    "$customer_details.profile_image",
+                                ]
+                            },
+                            "else": None,
+                        }
+                    },
                     "imageUrl": {
-                        "$concat": [
-                            str(request.base_url)[:-1],
-                            "/uploads/review/",
-                            "$image",
-                        ]
+                        "$cond": {
+                            "if": {"$ne": ["$image", None]},
+                            "then": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/review/",
+                                    "$image",
+                                ]
+                            },
+                            "else": None,
+                        }
                     },
                     "imageUrl300": {
-                        "$concat": [
-                            str(request.base_url)[:-1],
-                            "/uploads/review/300/",
-                            "$image",
-                        ]
+                        "$cond": {
+                            "if": {"$ne": ["$image", None]},
+                            "then": {
+                                "$concat": [
+                                    str(request.base_url)[:-1],
+                                    "/uploads/review/300/",
+                                    "$image",
+                                ]
+                            },
+                            "else": None,
+                        }
                     },
                 }
             },
@@ -1030,6 +1053,8 @@ def get_product_review_by_slug(request, product_slug):
                     "status": 1,
                     "customer_details.name": 1,
                     "customer_details.email": 1,
+                    "customer_details.profileImage": 1,
+                    "customer_details.profileImage300": 1,
                     "created_at": 1,
                 }
             },

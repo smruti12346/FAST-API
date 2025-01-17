@@ -428,3 +428,8 @@ def update_all_categories_parent_id_arr():
         return {"detail": "No documents were updated"}
 
     return {"message": f"{updated_count} documents updated successfully"}
+
+
+def update_sale_quantity_to_one():
+    result = db["product"].update_many({}, {"$set": {"sold_quantity": 0}})
+    return {"modified_count": result.modified_count}
