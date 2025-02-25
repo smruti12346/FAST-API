@@ -1383,7 +1383,9 @@ def get_all_orders_by_user(request, user_id, page, show_page):
 
 def get_order_details_by_order_id(request, order_id):
     try:
-        admindetails = shippingService.view_by_status(1)["data"][0]["addressDetails"]
+        companyShippingDetails = shippingService.view_by_status(1)["data"][0]
+        admindetails = companyShippingDetails["addressDetails"]
+        admindetails['company_name'] = companyShippingDetails["company_name"]
         shipping_company_name = ""
 
         # print(order_id)
