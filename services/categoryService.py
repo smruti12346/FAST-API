@@ -429,24 +429,67 @@ def get_category_wise_product(
         else:
             category_id = int(identifier)
 
+        # pipeline = [
+        #     {"$match": {"parent_id_arr": category_id}},
+        #     {
+        #         "$lookup": {
+        #             "from": "category",
+        #             "localField": "id",
+        #             "foreignField": "parent_id",
+        #             "as": "children",
+        #         }
+        #     },
+        #     # {"$match": {"children": {"$size": 0}}},
+        #     {"$project": {"id": 1}},
+        # ]
+        # result = list(collection.aggregate(pipeline))
+        # mainArr = [doc["id"] for doc in result] if result else [category_id]
+        # mainArr.append(category_id)
+
+        # pipeline = [
+        #     {"$match": {"$or": [{"id": category_id}, {"parent_id": category_id}]}},
+        #     {
+        #         "$graphLookup": {
+        #             "from": "category",
+        #             "startWith": "$id",
+        #             "connectFromField": "id",
+        #             "connectToField": "parent_id",
+        #             "as": "descendants",
+        #         }
+        #     },
+        #     {"$project": {"ids": {"$concatArrays": [["$id"], "$descendants.id"]}}},
+        # ]
+        # result = list(collection.aggregate(pipeline))
+        # mainArr = result[0]["id"] if result else []
         pipeline = [
-            {"$match": {"parent_id_arr": category_id}},
+            {"$match": {"$or": [{"id": category_id}, {"parent_id": category_id}]}},
+            {
+                "$graphLookup": {
+                    "from": "category",
+                    "startWith": "$id",
+                    "connectFromField": "id",
+                    "connectToField": "parent_id",
+                    "as": "descendants",
+                    "depthField": "depth",
+                }
+            },
+            {"$project": {"all_ids": {"$concatArrays": [["$id"], "$descendants.id"]}}},
+            {"$unwind": "$all_ids"},
             {
                 "$lookup": {
                     "from": "category",
-                    "localField": "id",
+                    "localField": "all_ids",
                     "foreignField": "parent_id",
                     "as": "children",
                 }
             },
-            {"$match": {"children": {"$size": 0}}},
-            {"$project": {"id": 1}},
+            {"$addFields": {"is_leaf": {"$eq": [{"$size": "$children"}, 0]}}},
+            {"$group": {"_id": "$all_ids", "is_leaf": {"$first": "$is_leaf"}}},
+            {"$project": {"_id": 0, "id": "$_id", "is_leaf": 1}},
         ]
-
         result = list(collection.aggregate(pipeline))
-
         mainArr = [doc["id"] for doc in result] if result else [category_id]
-        mainArr.append(category_id)
+        print(mainArr)
 
         query = [
             {"$match": {"category_id": {"$in": mainArr}, "deleted_at": None}},
