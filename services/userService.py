@@ -878,3 +878,28 @@ def reset_password_with_otp(
             }
     except Exception as e:
         return {"message": str(e), "status": "error"}
+
+
+def change_password(_id, email, old_password, password):
+    try:
+        user = check_email_exist(email)
+        if user is not None:
+            if pwd_context.verify(old_password, user["password"]):
+                result = collection.update_one(
+                    {"_id": ObjectId(_id)},
+                    {"$set": {"password": pwd_context.hash(password)}},
+                )
+                if result.modified_count == 1:
+                    return {
+                        "message": "password changed successfully",
+                        "status": "success",
+                    }
+                else:
+                    return {"message": "failed to change status", "status": "error"}
+            else:
+                return {"message": "password doesn't match", "status": "error"}
+        else:
+            return {"message": "invalid user creadential", "status": "error"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+ 

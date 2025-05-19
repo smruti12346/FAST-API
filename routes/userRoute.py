@@ -34,6 +34,7 @@ def get_all(page: int, show_page: int):
 def get_user_by_name(user_name: str):
     return userService.get_user_by_name(user_name)
 
+
 @router.get("/get-user-by-user-type/{user_type}", tags=["USER MANAGEMENT"])
 def get_user_by_user_type(request: Request, user_type: int):
     return userService.get_user_by_user_type(request, user_type)
@@ -98,7 +99,7 @@ def change_user_status(user_id: str):
 
 
 @router.post("/users/login/", tags=["USER AUTHENTICATION"])
-def login_user(request:Request, email: str, password: str):
+def login_user(request: Request, email: str, password: str):
     return userService.login(request, email, password)
 
 
@@ -240,3 +241,15 @@ def reset_password_with_otp(
     return userService.reset_password_with_otp(
         user_email, password, confirm_password, otp
     )
+
+
+@router.post("/change-password", tags=["CHANGE PASSWORD MANAGEMNT"])
+def change_password(
+    old_password: str, password: str, token: str = Depends(userService.get_current_user)
+):
+    if "_id" in token:
+        return userService.change_password(
+            str(token["_id"]), str(token["email"]), old_password, password
+        )
+    else:
+        return {"message": "Please Login First", "status": "error"}

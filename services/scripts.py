@@ -74,38 +74,34 @@ def get_categories_from_db():
 
 def generate_dummy_order(product_ids, customer_id, addresses, random_date, statuses):
     status = random.choice(list(statuses.keys()))
-
-    # Generate a random order datetime
     order_datetime = random_date(datetime(2023, 1, 1), datetime.now())
 
-    # Format the datetime to string
     order_at = order_datetime.strftime("%Y-%m-%d %H:%M:%S")
     order_date = order_datetime.strftime("%Y-%m-%d")
     order_time = order_datetime.strftime("%H:%M:%S")
 
-    # Initialize delivery_date as None
     delivery_date = None
-
-    # If status is order delivered (3), set delivery_date to current date
-    if status == 3:
+    # Set delivery_date if status is "order delivered" (6)
+    if status == 6:
         delivery_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    payment_type = "cash on delivery" if status in [0, 2, 3, 4, 5, 6, 7] else "paypal"
-    payment_method = "N/A" if status in [0, 3, 4, 5, 6, 7] else "Online"
+    # Determine payment type based on status
+    payment_type = "cash on delivery" if status in [2, 3, 4, 5, 6, 7] else "paypal"
+    payment_method = "N/A" if payment_type == "cash on delivery" else "Online"
     transaction_id = (
         "N/A"
-        if status in [0, 3, 4, 5, 6, 7]
+        if payment_type == "cash on delivery"
         else f"{random.randint(1000000000, 9999999999)}"
     )
 
-    # Set payment_status and transaction_status based on payment_type and status
+    # Determine payment status and transaction status
     if payment_type == "paypal":
         payment_status = 1
         transaction_status = 1
         payment_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         payment_status_message = "COMPLETED"
-    elif payment_type == "cash on delivery":
-        if status in [3, 4, 5, 6, 7]:  # Order delivered or related statuses
+    else:  # cash on delivery
+        if status == 6:  # Order delivered
             payment_status = 1
             transaction_status = 1
             payment_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -115,12 +111,8 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
             transaction_status = 0
             payment_date = "N/A"
             payment_status_message = "payment pending"
-    else:
-        payment_status = 0
-        transaction_status = 0
-        payment_date = "N/A"
-        payment_status_message = "payment pending"
 
+    # Payment details for PayPal
     payment_details = (
         None
         if payment_type == "cash on delivery"
@@ -204,7 +196,7 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
             "order_cancel_amount": None,
             "shipped_date": None,
             "shipped_id": None,
-            "delivery_date": delivery_date,  # Set delivery_date based on status
+            "delivery_date": delivery_date,
         },
         "payment_details": {
             "payment_type": payment_type,
@@ -236,16 +228,16 @@ def generate_dummy_order(product_ids, customer_id, addresses, random_date, statu
 
 def generate_dummy_order_route_handle():
     product_ids = [
-        "667a64c12f17f878dacd8896",
-        "667a69162f17f878dacd8897",
-        "667a6c282f17f878dacd8898",
-        "667a6da32f17f878dacd8899",
-        "667a6f5f2f17f878dacd889a",
-        "667a72512f17f878dacd889b",
-        "667a73322f17f878dacd889c",
-        "667a75352f17f878dacd889d",
-        "667a76202f17f878dacd889e",
-        "667a780e2f17f878dacd889f",
+        "66c6e2cffc9c0596831e78c6",
+        "66c6e2cffc9c0596831e78ae",
+        "66c6e2cffc9c0596831e78b2",
+        "66c6e2cffc9c0596831e78d1",
+        "66c6e2cffc9c0596831e78e6",
+        "66c6e2cffc9c0596831e78ba",
+        "66c6e2cffc9c0596831e78c3",
+        "66c6e2cffc9c0596831e78de",
+        "66c6e2cffc9c0596831e78e8",
+        "66c6e2cffc9c0596831e78bd",
     ]
     customer_id = "666c39bf25d367a583dd1e23"
     # Sample addresses
@@ -275,15 +267,17 @@ def generate_dummy_order_route_handle():
 
     # Statuses
     statuses = {
-        0: "quantity not available",
-        1: "order successfully add",
-        2: "place order",
-        3: "order delivered",
-        4: "return request",
-        5: "return request accepted",
-        6: "refund initiated",
-        7: "refund completed",
-        8: "order cancelled",
+        1: "order placed",
+        2: "payment fail",
+        3: "shipping fail",
+        4: "quantity not available",
+        5: "order shipped",
+        6: "order delivered",
+        7: " return request",
+        8: "return request accepted",
+        9: "refund initiated",
+        10: "refund completed",
+        11: " order cancelled ",
     }
 
     dummy_data = [
