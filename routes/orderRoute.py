@@ -3,27 +3,30 @@ from Models.Order import OrderModel, InvoiceModel, GuestOrderModel
 import services.cartService as cartService
 import services.userService as userService
 import services.orderService as orderService
+from Models.Cart import CartModel
 
 from typing import List, Optional
 
 router = APIRouter()
 
-# ======================================================================================================
-# ======================================================================================================
-# ======================================================================================================
-# @router.post("/add_to_cart/")
-# def add_to_cart(product_id: str, token: str = Depends(userService.get_current_user)):
-#     if "_id" in token:
-#         return cartService.add_to_cart(str(token["_id"]), product_id)
-#     else:
-#         return {"message": "Please Login First", "status": "error"}
-
 
 # ======================================================================================================
 # ======================================================================================================
 # ======================================================================================================
+@router.post("/add-to-cart/", tags=["CART MANAGEMENT"])
+def add_to_cart(
+    products: List[CartModel] = Body(...),
+    token: str = Depends(userService.get_current_user),
+    updateStatus: Optional[bool] = False,
+):
+    if "_id" in token:
+        return cartService.add_to_cart(str(token["_id"]), products, updateStatus)
+    else:
+        return {"message": "Please Login First", "status": "error"}
+
+
 @router.post("/cart/", tags=["CART MANAGEMENT"])
-def add_to_cart(request: Request, items: List[str] = Body(...)):
+def get_cart_details_by_product_arr(request: Request, items: List[str] = Body(...)):
     return cartService.get_cart_details_by_product_arr(request, items)
 
 
@@ -32,7 +35,7 @@ def get_shipping_and_tax_details(request: Request):
     return cartService.get_shipping_and_tax_details(request)
 
 
-@router.post("/get_all_cart_details_by_user_id/", tags=["CART MANAGEMENT"])
+@router.post("/get-all-cart-details-by-user-token/", tags=["CART MANAGEMENT"])
 def get_all_cart_details_by_user_id(
     request: Request, token: str = Depends(userService.get_current_user)
 ):
@@ -157,7 +160,9 @@ def get_orders(request: Request):
 
 
 @router.get("/get-all-orders/{page}", tags=["ORDER REPORTS"])
-def get_all_orders(request: Request, page: int, show_page: int, search_query: Optional[str] = None):
+def get_all_orders(
+    request: Request, page: int, show_page: int, search_query: Optional[str] = None
+):
     return orderService.get_all_orders(request, page, show_page, search_query)
 
 

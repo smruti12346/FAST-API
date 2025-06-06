@@ -1,10 +1,6 @@
 from db import db
-from bson import ObjectId
-from .userService import get_user_by_id
-from .productService import get_product_details_by_id, get_product_by_id
+from .productService import get_product_by_id
 from datetime import datetime
-from bson import ObjectId
-import logging
 import services.shippingService as shippingService
 import services.veracoreService as veracoreService
 import services.taxService as taxService
@@ -12,44 +8,70 @@ import services.taxService as taxService
 collection = db["cart"]
 
 
-def add_to_cart(user_id, product_id):
+def add_to_cart(user_id, products, updateStatus=False):
     try:
+        # Convert any CartModel objects in products to dicts
+        def to_dict(item):
+            if hasattr(item, "dict"):
+                return item.dict()
+            elif hasattr(item, "__dict__"):
+                return dict(item.__dict__)
+            return item
 
-        order_data = get_cart_details_by_product_id_user_id(product_id, user_id)
-        if order_data["data"] and len(order_data["data"]) > 0:
-            return {"message": "Product already in cart", "status": "error"}
+        products_serialized = [to_dict(item) for item in products]
 
-        product_data = get_product_details_by_id(product_id)
-        if product_data["data"] and len(product_data["data"]) == 0:
-            return {"message": "Invalid product", "status": "error"}
+        cart_details = get_cart_by_user_id(user_id)
 
-        user_data = get_user_by_id(user_id)
-        if user_data["data"] and len(user_data["data"]) == 0:
-            return {"message": "Invalid user", "status": "error"}
+        if cart_details["status"] == "error":
+            cart_data = {
+                "customer_id": user_id,
+                "products": products_serialized,
+                "status": 1,
+                "deleted_at": None,
+                "created_by": user_id,
+                "updated_by": None,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": None,
+            }
+            result = collection.insert_one(cart_data)
+            return {
+                "message": "data inserted successfully",
+                "_id": str(result.inserted_id),
+                "status": "success",
+            }
+        else:
+            existing_products = cart_details["data"].get("products", [])
+            # Merge logic: update quantity/varientArr if id matches, else append new
+            updated_products = existing_products.copy()
+            for new_item in products_serialized:
+                found = False
+                for idx, exist_item in enumerate(updated_products):
+                    # if exist_item.get("id") == new_item.get("id") and exist_item.get("varientArr") == new_item.get("varientArr"):
+                    if exist_item.get("id") == new_item.get("id"):
+                        # Update quantity
+                        updated_products[idx]["quantity"] = new_item.get("quantity", 0)
+                        found = True
+                        break
+                if not found:
+                    updated_products.append(new_item)
 
-        cart_data = {
-            "customer_id": user_id,
-            "location": {},
-            "product_id": product_id,
-            "order_details": {
-                "total_quantity": 1,
-            },
-            "status": 1,
-            "deleted_at": None,
-            "created_by": user_id,
-            "updated_by": None,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "updated_at": None,
-        }
+            # If status is True, remove products from DB cart that are not in the new products list
+            update_data = {
+                "products": products_serialized if updateStatus else updated_products,
+                "updated_by": user_id,
+                "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
 
-        result = collection.insert_one(cart_data)
-        return {
-            "message": "data inserted successfully",
-            "_id": str(result.inserted_id),
-            "status": "success",
-        }
+            result = collection.update_one(
+                {"customer_id": user_id}, {"$set": update_data}
+            )
+            if result.modified_count > 0:
+                return {"message": "Cart updated successfully", "status": "success"}
+            else:
+                return {"message": "No changes made to the cart", "status": "info"}
+
     except Exception as e:
-        return {"message": str(e), "status": "success"}
+        return {"message": str(e), "status": "error"}
 
 
 def get_cart_details_by_product_id(product_id: str):
@@ -66,67 +88,59 @@ def get_cart_details_by_product_id(product_id: str):
 
 def get_all_cart_details_by_user_id(request, user_id: str):
     try:
-        pipeline = [
-            {"$match": {"customer_id": user_id}},
-            {"$addFields": {"product_id_obj": {"$toObjectId": "$product_id"}}},
-            {
-                "$lookup": {
-                    "from": "product",
-                    "localField": "product_id_obj",
-                    "foreignField": "_id",
-                    "as": "product_details",
+        cart_details = get_cart_by_user_id(user_id)
+        if cart_details["status"] == "success" and cart_details["data"]:
+            products = cart_details["data"].get("products", [])
+            product_ids = [item["id"] for item in products] if products else []
+            if len(product_ids) > 0:
+                product_data = get_cart_details_by_product_arr(request, product_ids)
+                if product_data["status"] == "success":
+                    # Map server_cart_quantity, varientSuggestionArr, and varientArr from original cart products
+                    for prod in product_data["data"]:
+                        for cart_item in products:
+                            if prod.get("_id") == cart_item.get("id"):
+                                prod["cart_quantity"] = cart_item.get("quantity", 0)
+                                prod["varientSuggestionArr"] = cart_item.get(
+                                    "varientSuggestionArr", []
+                                )
+                                prod["varientArr"] = cart_item.get("varientArr", [])
+                                break
+                    cart_details["data"]["products"] = product_data["data"]
+                    return {"data": cart_details["data"], "status": "success"}
+                else:
+                    return {
+                        "message": "Error fetching product details",
+                        "data": [],
+                        "status": "error",
+                    }
+            else:
+                return {
+                    "message": "No products found in the cart",
+                    "data": [],
+                    "status": "error",
                 }
-            },
-            {"$unwind": "$product_details"},
-            {
-                "$addFields": {
-                    "product_details.imageUrl": {
-                        "$concat": [
-                            str(request.base_url)[:-1],
-                            "/uploads/products/",
-                            "$product_details.cover_image",
-                        ]
-                    },
-                    "product_details.imageUrl100": {
-                        "$concat": [
-                            str(request.base_url)[:-1],
-                            "/uploads/products/100/",
-                            "$product_details.cover_image",
-                        ]
-                    },
-                    "product_details.imageUrl300": {
-                        "$concat": [
-                            str(request.base_url)[:-1],
-                            "/uploads/products/300/",
-                            "$product_details.cover_image",
-                        ]
-                    },
-                    "product_details.main_price": "$product_details.main_price",
-                    "product_details.sale_price": "$product_details.sale_price",
-                    "product_details.quantity": "$product_details.quantity",
-                }
-            },
-            {
-                "$project": {
-                    "_id": {"$toString": "$_id"},
-                    "customer_id": 1,
-                    "product_id": {"$toString": "$product_id"},
-                    "order_details": 1,
-                    "product_details._id": {"$toString": "$product_details._id"},
-                    "product_details.name": 1,
-                    "product_details.cover_image": 1,
-                    "product_details.imageUrl": 1,
-                    "product_details.imageUrl100": 1,
-                    "product_details.imageUrl300": 1,
-                    "product_details.main_price": 1,
-                    "product_details.sale_price": 1,
-                    "product_details.quantity": 1,
-                }
-            },
-        ]
+        else:
+            return {
+                "message": "No cart found for this user",
+                "data": [],
+                "status": "error",
+            }
 
-        result = list(collection.aggregate(pipeline))
-        return {"data": result, "status": "success"}
+    except Exception as e:
+        return {"message": str(e), "status": "error"}
+
+
+def get_cart_by_user_id(customer_id: str):
+    try:
+        result = collection.find_one({"customer_id": customer_id})
+        if result:
+            result["_id"] = str(result["_id"])
+            return {"data": result, "status": "success"}
+        else:
+            return {
+                "message": "No cart found for this product and user",
+                "status": "error",
+            }
     except Exception as e:
         return {"message": str(e), "status": "error"}
 
@@ -160,13 +174,17 @@ def get_cart_details_by_product_arr(request, items):
         for item in items:
             product_data = get_product_by_id(request, item)
             if product_data["data"] and len(product_data["data"]) > 0:
-                if shipping_company_name == 'Veracore':
-                    veracoreproductdetails = veracoreService.get_veracore_product_details(product_data["data"][0]['product_sku'])
-                    if veracoreproductdetails['status'] == 'success':
-                        quantity = veracoreproductdetails['data'][0]['Available']
+                if shipping_company_name == "Veracore":
+                    veracoreproductdetails = (
+                        veracoreService.get_veracore_product_details(
+                            product_data["data"][0]["product_sku"]
+                        )
+                    )
+                    if veracoreproductdetails["status"] == "success":
+                        quantity = veracoreproductdetails["data"][0]["Available"]
                     else:
                         quantity = 0
-                    product_data["data"][0]['quantity'] = quantity
+                    product_data["data"][0]["quantity"] = quantity
 
                     data.append(product_data["data"][0])
                 else:

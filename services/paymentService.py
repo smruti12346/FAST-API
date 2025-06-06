@@ -14,8 +14,8 @@ PAYPAL_CLIENT_ID = (
 PAYPAL_SECRET = (
     "EOgzoHLwc5ax-5ytU2ACsRnGmYquyDwslQsPCKHefMtvEDjNSDMmMPW4mIt8gM5A6l1cDiNMNGA5rAIe"
 )
-# PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"
-PAYPAL_BASE_URL = "https://api-m.paypal.com"
+PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"
+# PAYPAL_BASE_URL = "https://api-m.paypal.com"
 
 
 def create(data):

@@ -176,8 +176,13 @@ async def add_component_details(data_dict, id):
                     content = await value.read()
                     myfile.write(content)
                     myfile.close()
-                resize_image(filename, mainFileName, PATH_FILES)
-                new_data_dict[key] = filename + ".webp"
+                # Only resize if the file is an image
+                ext = os.path.splitext(value.filename)[1].lower()
+                if ext in [".jpg", ".jpeg", ".png", ".webp"]:
+                    resize_image(filename, mainFileName, PATH_FILES)
+                    new_data_dict[key] = filename + ".webp"
+                else:
+                    new_data_dict[key] = mainFileName
 
         new_data_dict["id"] = f"{uuid.uuid1()}"
         filter_query = {"_id": ObjectId(id)}

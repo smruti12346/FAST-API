@@ -37,6 +37,10 @@ async def update_component_details(request: Request, parent_id: str, child_id:st
     return await componentService.update_component_details(form_data, parent_id, child_id)
 
 
+@router.delete("/delete-component/{_id}", tags=["DYNAMIC PAGE'S COMPONENT MANAGEMENT"])
+def delete_component(request: Request, _id: str):
+    return componentService.delete_component(request, _id)
+
 @router.delete("/delete-component-details/{_id}/{id}", tags=["DYNAMIC PAGE'S COMPONENT MANAGEMENT"])
 def delete_component_details(request: Request, _id: str, id: str):
     return componentService.delete_component_details(request, _id, id)

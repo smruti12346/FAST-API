@@ -7,7 +7,6 @@ from os import getcwd
 import os
 import uuid
 from services.common import resize_image
-from pydantic import Field
 from datetime import datetime
 import ast
 
@@ -824,16 +823,22 @@ async def create_review(product_id, point, review, review_image, token):
             if product_details == None:
                 return {"message": "Product not found", "status": "error"}
 
-            PATH_FILES = getcwd() + "/uploads/review/"
-            os.makedirs(PATH_FILES, exist_ok=True)
-            filename = f"{uuid.uuid1()}-{os.path.splitext(review_image.filename)[0]}"
-            mainFileName = filename + os.path.splitext(review_image.filename)[1]
+            if review_image is not None:
+                PATH_FILES = getcwd() + "/uploads/review/"
+                os.makedirs(PATH_FILES, exist_ok=True)
+                filename = (
+                    f"{uuid.uuid1()}-{os.path.splitext(review_image.filename)[0]}"
+                )
+                mainFileName = filename + os.path.splitext(review_image.filename)[1]
 
-            with open(PATH_FILES + mainFileName, "wb") as myfile:
-                content = await review_image.read()
-                myfile.write(content)
-                myfile.close()
-            resize_image(filename, mainFileName, PATH_FILES)
+                with open(PATH_FILES + mainFileName, "wb") as myfile:
+                    content = await review_image.read()
+                    myfile.write(content)
+                    myfile.close()
+                resize_image(filename, mainFileName, PATH_FILES)
+                image = filename + ".webp"
+            else:
+                image = review_image
 
             # category_data.image = filename + ".webp"
 
@@ -842,7 +847,7 @@ async def create_review(product_id, point, review, review_image, token):
                 "product_id": product_id,
                 "point": point,
                 "review": review,
-                "image": filename + ".webp",
+                "image": image,
                 "status": 1,
                 "deleted_at": None,
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

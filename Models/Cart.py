@@ -1,10 +1,11 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 from typing import List
 import json
 
 class CartModel(BaseModel):
     id: str
     varientArr: List[int]
+    varientSuggestionArr: List[object]
     quantity: int
 
     @model_validator(mode="before")

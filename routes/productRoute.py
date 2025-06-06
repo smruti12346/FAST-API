@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Body, Request, Query, Depends
+from fastapi import APIRouter, UploadFile, Form, File, Body, Request, Query, Depends
 import services.productService as productService
 from services.common import resize_image
 from Models.Products import ProductModel, VariantItem, ProductUpdateModel
@@ -7,7 +7,6 @@ import os
 import uuid
 from os import getcwd
 import json
-import logging
 import services.userService as userService
 
 
@@ -72,8 +71,11 @@ async def create_product(
 
 
 @router.get("/all-products/{page}", tags=["PRODUCT MANAGEMENT"])
-def get_all_product(request: Request, page: int, show_page: int, search_query: Optional[str] = None):
+def get_all_product(
+    request: Request, page: int, show_page: int, search_query: Optional[str] = None
+):
     return productService.get_all_product(request, page, show_page, search_query)
+
 
 @router.get("/get-products-slugs-wise/", tags=["PRODUCT MANAGEMENT"])
 def get_products_slugs_wise(request: Request, slugs: str):
@@ -92,7 +94,7 @@ async def update_product(
         PATH_FILES = getcwd() + "/uploads/products/"
         os.makedirs(PATH_FILES, exist_ok=True)
 
-        if cover_image :
+        if cover_image:
             cover_image_filename = (
                 f"{uuid.uuid1()}-{os.path.splitext(cover_image.filename)[0]}"
             )
@@ -107,7 +109,7 @@ async def update_product(
             resize_image(cover_image_filename, main_cover_image_filename, PATH_FILES)
             product_data.cover_image = cover_image_filename + ".webp"
 
-        if images :
+        if images:
             additional_image_filenames = []
             for image in images:
                 feature_image = f"{uuid.uuid1()}-{os.path.splitext(image.filename)[0]}"
@@ -121,7 +123,6 @@ async def update_product(
                 additional_image_filenames.append(feature_image + ".webp")
 
             product_data.images = additional_image_filenames
-        
 
         if product_data.seo is not None:
             product_data.seo = json.loads(product_data.seo)
@@ -177,10 +178,10 @@ def update_only_product_quantity(product_id: str, total_quantity: int):
 # ======================================================================================================
 @router.post("/create-review", tags=["PRODUCT REVIEW MANAGEMENT"])
 async def create_review(
-    product_id: str,
-    point: int,
-    review: str,
-    review_image: UploadFile = File(...),
+    product_id: str = Form(...),
+    point: int = Form(...),
+    review: str = Form(...),
+    review_image: Optional[UploadFile] = File(None),
     token: str = Depends(userService.get_current_user),
 ):
     if "_id" in token:
@@ -205,6 +206,9 @@ def get_products_wise_reviews(request: Request, page: int, show_page: int):
 def get_product_review(request: Request, product_id: str):
     return productService.get_product_review(request, product_id)
 
-@router.get("/get-product-review-by-slug/{product_slug}", tags=["PRODUCT REVIEW MANAGEMENT"])
+
+@router.get(
+    "/get-product-review-by-slug/{product_slug}", tags=["PRODUCT REVIEW MANAGEMENT"]
+)
 def get_product_review_by_slug(request: Request, product_slug: str):
     return productService.get_product_review_by_slug(request, product_slug)
