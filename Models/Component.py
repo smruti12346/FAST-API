@@ -32,7 +32,7 @@ class ComponentData(BaseModel):
     slug: str
     fields: List[InputFields]
     field_values: Optional[list] = []
-    description: str
+    description: Optional[str] = None
     seo: Seo
     status: Optional[int] = Field(default=1)
     deleted_at: Optional[str] = None
